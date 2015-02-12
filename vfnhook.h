@@ -62,6 +62,7 @@ void main( )
 	extern funcname##Func funcname;
 
 #if defined _WIN32
+
 	#define WIN32_LEAN_AND_MEAN
 	#define WIN32_EXTRA_LEAN
 	#include <windows.h>
@@ -127,10 +128,14 @@ void main( )
 
 	#define HOOKVFUNC( classptr, index, funcname, newfunc ) \
 		funcname = ( funcname##Func )VFN( classptr, index ); \
-		*(ADDRTYPE *)PVFN( classptr, index ) = newfunc;
+		*(ADDRTYPE *)PVFN( classptr, index ) = (ADDRTYPE)newfunc;
 
-	#define UNHOOKVFUNC( classptr, index, funcname, newfunc ) \
-		*(ADDRTYPE *)PVFN( classptr, index ) = funcname;
+	#define UNHOOKVFUNC( classptr, index, funcname ) \
+		*(ADDRTYPE *)PVFN( classptr, index ) = (ADDRTYPE)funcname;
+
+#else
+
+	#error unsupported platform
 
 #endif
 
