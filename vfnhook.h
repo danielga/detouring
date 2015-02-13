@@ -49,30 +49,33 @@ void main( )
 }
 */
 
-#define ADDRTYPE unsigned long
+#include <cstdint>
 
-#define VTBL( classptr ) ( *(ADDRTYPE *)classptr )
-#define PVFN_( classptr, offset ) (VTBL( classptr ) + offset )
-#define VFN_( classptr, offset ) *(ADDRTYPE *)PVFN_( classptr, offset )
-#define PVFN( classptr, offset ) PVFN_( classptr, ( offset * sizeof( void * ) ) )
-#define VFN( classptr, offset ) VFN_( classptr, ( offset * sizeof( void * ) ) )
+#define VTBL( classptr ) ( *(uintptr_t *)classptr )
+#define PVFN_( classptr, offset ) ( VTBL( classptr ) + offset )
+#define VFN_( classptr, offset ) *(uintptr_t *)PVFN_( classptr, offset )
+#define PVFN( classptr, offset ) PVFN_( classptr, offset * sizeof( void * ) )
+#define VFN( classptr, offset ) VFN_( classptr, offset * sizeof( void * ) )
 
-#define HDEFVFUNC( funcname, returntype, proto ) \
-	typedef returntype ( VFUNC * funcname##Func ) proto; \
-	extern funcname##Func funcname;
-
-#if defined _WIN32
+#if defined WIN32
 
 	#define WIN32_LEAN_AND_MEAN
 	#define WIN32_EXTRA_LEAN
 	#include <windows.h>
+	#include <strtools.h>
 
 	class CVirtualCallGate
 	{
 	public:
+		CVirtualCallGate( )
+		{
+			DWORD old = 0;
+			VirtualProtect( m_szGate, sizeof( m_szGate ), PAGE_EXECUTE_READWRITE, &old );
+		}
+
 		void Build( void *pOrigFunc, void *pNewFunc, void *pOrgFuncCaller )
 		{
-			BYTE szGate[] = {
+			static uint8_t szGate[] = {
 				//pop a	push c	push a	mov a, <dword>	jmp a
 				0x58,	0x51,	0x50,	0xB8, 0,0,0,0,	0xFF, 0xE0,
 				//pop a	pop c	push a	mov a, <dword>	jmp a
@@ -81,63 +84,79 @@ void main( )
 
 			memcpy( m_szGate, &szGate, sizeof( szGate ) );
 
-			*(ADDRTYPE *)&m_szGate[4] = (ADDRTYPE)pNewFunc;
-			*(ADDRTYPE *)&m_szGate[14] = (ADDRTYPE)pOrigFunc;
+			*(uintptr_t *)&m_szGate[4] = (uintptr_t)pNewFunc;
+			*(uintptr_t *)&m_szGate[14] = (uintptr_t)pOrigFunc;
 			
-			*(ADDRTYPE *)pOrgFuncCaller = (ADDRTYPE)&m_szGate[10];
+			*(uintptr_t *)pOrgFuncCaller = (uintptr_t)&m_szGate[10];
 		}
 
-		ADDRTYPE Gate( )
+		uintptr_t Gate( )
 		{
-			return (ADDRTYPE)&m_szGate[0];
+			return (uintptr_t)&m_szGate[0];
 		}
 
 	private:
-		char m_szGate[20];
+		uint8_t m_szGate[20];
 	};
 
-	inline bool DeProtect( void *pMemory, unsigned int uiLen, bool bLock = false )
+	inline void Protection( void *pMemory, size_t uiLen, bool activate )
 	{
-		DWORD dwIDontCare;
-		return VirtualProtect( pMemory, uiLen, bLock ? PAGE_READONLY : PAGE_EXECUTE_READWRITE, &dwIDontCare ) ? true : false;
+		static DWORD before = 0;
+		VirtualProtect( pMemory, uiLen, activate ? before : PAGE_EXECUTE_READWRITE, &before );
 	}
 
 	#define VFUNC __stdcall
 
 	#define DEFVFUNC( funcname, returntype, proto ) \
-		funcname##Func funcname = NULL; \
-		void *funcname##Raw_Org = NULL; \
-		CVirtualCallGate funcname##Gate;
+		funcname##Func funcname = nullptr; \
+		void *funcname##Raw_Org = nullptr; \
+		CVirtualCallGate funcname##Gate
 	
 	#define HOOKVFUNC( classptr, index, funcname, newfunc ) \
-		DeProtect( (void *)VTBL( classptr ), ( index * sizeof( void * ) ) + 4 ); \
+		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, false ); \
 		funcname##Raw_Org = (void *)VFN( classptr, index ); \
-		funcname##Gate.Build( funcname##Raw_Org, newfunc, & funcname ); \
-		*(ADDRTYPE *)PVFN( classptr, index ) = funcname##Gate.Gate( ); \
-		DeProtect( (void *)VTBL( classptr ), ( index * sizeof( void * ) ) + 4 );
+		funcname##Gate.Build( funcname##Raw_Org, newfunc, &funcname ); \
+		*(uintptr_t *)PVFN( classptr, index ) = funcname##Gate.Gate( ); \
+		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, true )
 
 	#define UNHOOKVFUNC( classptr, index, funcname ) \
-		*(ADDRTYPE *)PVFN( classptr, index ) = (ADDRTYPE)funcname##Raw_Org;
+		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, false ); \
+		*(uintptr_t *)PVFN( classptr , index ) = (uintptr_t)funcname##Raw_Org ; \
+		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, true )
 
 #elif defined __linux || defined __APPLE__
+
+	inline void Protection( uintptr_t pMemory, bool activate )
+	{
+		long pagesize = sysconf( _SC_PAGESIZE );
+		mprotect( (void *)( pMemory - pMemory % pagesize ), pagesize, ( activate ? 0 : PROT_WRITE ) | PROT_READ | PROT_EXEC );
+	}
 
 	#define VFUNC
 
 	#define DEFVFUNC( funcname, returntype, proto ) \
-		funcname##Func funcname = NULL; 
+		funcname##Func funcname = nullptr
 
 	#define HOOKVFUNC( classptr, index, funcname, newfunc ) \
-		funcname = ( funcname##Func )VFN( classptr, index ); \
-		*(ADDRTYPE *)PVFN( classptr, index ) = (ADDRTYPE)newfunc;
+		Protection( VTBL( classptr ), false ); \
+		funcname = (funcname##Func)VFN( classptr, index ); \
+		*(uintptr_t *)PVFN( classptr, index ) = (uintptr_t)newfunc; \
+		Protection( VTBL( classptr ), true )
 
-	#define UNHOOKVFUNC( classptr, index, funcname ) \
-		*(ADDRTYPE *)PVFN( classptr, index ) = (ADDRTYPE)funcname;
+	#define UNHOOKVFUNC( classptr, index, funcname  ) \
+		Protection( VTBL( classptr ), false ); \
+		*(uintptr_t *)PVFN( classptr, index ) = (uintptr_t)funcname; \
+		Protection( VTBL( classptr ), true )
 
 #else
 
-	#error unsupported platform
+	#error Unsupported platform.
 
 #endif
+
+#define HDEFVFUNC( funcname, returntype, proto ) \
+	typedef returntype ( VFUNC *funcname##Func ) proto; \
+	extern funcname##Func funcname
 
 #define DEFVFUNC_( funcname, returntype, proto ) \
 	HDEFVFUNC( funcname, returntype, proto ); \
