@@ -121,7 +121,7 @@ void main( )
 
 	#define UNHOOKVFUNC( classptr, index, funcname ) \
 		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, false ); \
-		*(uintptr_t *)PVFN( classptr , index ) = (uintptr_t)funcname##Raw_Org ; \
+		*(uintptr_t *)PVFN( classptr , index ) = (uintptr_t)funcname##Raw_Org; \
 		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, true )
 
 #elif defined __linux || defined __APPLE__
