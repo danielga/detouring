@@ -57,7 +57,7 @@ void main( )
 #define PVFN( classptr, offset ) PVFN_( classptr, offset * sizeof( void * ) )
 #define VFN( classptr, offset ) VFN_( classptr, offset * sizeof( void * ) )
 
-#if defined WIN32
+#if defined _WIN32
 
 	#define WIN32_LEAN_AND_MEAN
 	#define WIN32_EXTRA_LEAN
