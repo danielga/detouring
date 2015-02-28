@@ -126,6 +126,9 @@ void main( )
 
 #elif defined __linux || defined __APPLE__
 
+	#include <sys/mman.h>
+	#include <unistd.h>
+
 	inline void ProtectMemory( void *pMemory, size_t uiLen, bool protect )
 	{
 		long pagesize = sysconf( _SC_PAGESIZE );
