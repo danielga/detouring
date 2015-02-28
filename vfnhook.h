@@ -129,7 +129,8 @@ void main( )
 	inline void ProtectMemory( void *pMemory, size_t uiLen, bool protect )
 	{
 		long pagesize = sysconf( _SC_PAGESIZE );
-		mprotect( (void *)( pMemory - (uintptr_t)pMemory % pagesize ), pagesize, ( protect ? 0 : PROT_WRITE ) | PROT_READ | PROT_EXEC );
+		uintptr_t uiMemory = (uintptr_t)pMemory;
+		mprotect( (void *)( uiMemory - uiMemory % pagesize ), pagesize, ( protect ? 0 : PROT_WRITE ) | PROT_READ | PROT_EXEC );
 	}
 
 	#define VFUNC
