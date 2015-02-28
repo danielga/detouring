@@ -99,7 +99,7 @@ void main( )
 		uint8_t m_szGate[20];
 	};
 
-	inline void Protection( void *pMemory, size_t uiLen, bool activate )
+	inline void ProtectMemory( void *pMemory, size_t uiLen, bool activate )
 	{
 		static DWORD before = 0;
 		VirtualProtect( pMemory, uiLen, activate ? before : PAGE_EXECUTE_READWRITE, &before );
@@ -113,20 +113,20 @@ void main( )
 		CVirtualCallGate funcname##Gate
 	
 	#define HOOKVFUNC( classptr, index, funcname, newfunc ) \
-		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, false ); \
+		ProtectMemory( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, false ); \
 		funcname##Raw_Org = (void *)VFN( classptr, index ); \
 		funcname##Gate.Build( funcname##Raw_Org, newfunc, &funcname ); \
 		*(uintptr_t *)PVFN( classptr, index ) = funcname##Gate.Gate( ); \
-		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, true )
+		ProtectMemory( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, true )
 
 	#define UNHOOKVFUNC( classptr, index, funcname ) \
-		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, false ); \
+		ProtectMemory( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, false ); \
 		*(uintptr_t *)PVFN( classptr, index ) = (uintptr_t)funcname##Raw_Org; \
-		Protection( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, true )
+		ProtectMemory( (void *)VTBL( classptr ), index * sizeof( void * ) + 4, true )
 
 #elif defined __linux || defined __APPLE__
 
-	inline void Protection( uintptr_t pMemory, bool activate )
+	inline void ProtectMemory( uintptr_t pMemory, bool activate )
 	{
 		long pagesize = sysconf( _SC_PAGESIZE );
 		mprotect( (void *)( pMemory - pMemory % pagesize ), pagesize, ( activate ? 0 : PROT_WRITE ) | PROT_READ | PROT_EXEC );
@@ -138,15 +138,15 @@ void main( )
 		funcname##Func funcname = nullptr
 
 	#define HOOKVFUNC( classptr, index, funcname, newfunc ) \
-		Protection( VTBL( classptr ), false ); \
+		ProtectMemory( VTBL( classptr ), false ); \
 		funcname = (funcname##Func)VFN( classptr, index ); \
 		*(uintptr_t *)PVFN( classptr, index ) = (uintptr_t)newfunc; \
-		Protection( VTBL( classptr ), true )
+		ProtectMemory( VTBL( classptr ), true )
 
 	#define UNHOOKVFUNC( classptr, index, funcname  ) \
-		Protection( VTBL( classptr ), false ); \
+		ProtectMemory( VTBL( classptr ), false ); \
 		*(uintptr_t *)PVFN( classptr, index ) = (uintptr_t)funcname; \
-		Protection( VTBL( classptr ), true )
+		ProtectMemory( VTBL( classptr ), true )
 
 #else
 
