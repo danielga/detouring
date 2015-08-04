@@ -99,7 +99,7 @@ void main( )
 		uint8_t m_szGate[20];
 	};
 
-	inline void ProtectMemory( void *pMemory, size_t uiLen, bool protect )
+	inline bool ProtectMemory( void *pMemory, size_t uiLen, bool protect )
 	{
 		static DWORD before = 0;
 		VirtualProtect( pMemory, uiLen, protect ? before : PAGE_EXECUTE_READWRITE, &before );
@@ -129,11 +129,10 @@ void main( )
 	#include <sys/mman.h>
 	#include <unistd.h>
 
-	inline void ProtectMemory( void *pMemory, size_t uiLen, bool protect )
+	inline bool ProtectMemory( void *pMemory, size_t uiLen, bool protect )
 	{
-		long pagesize = sysconf( _SC_PAGESIZE );
-		uintptr_t uiMemory = (uintptr_t)pMemory;
-		mprotect( (void *)( uiMemory - uiMemory % pagesize ), pagesize, ( protect ? 0 : PROT_WRITE ) | PROT_READ | PROT_EXEC );
+		uintptr_t uiMemory = (uintptr_t)pMemory, diff = uiMemory % (uintptr_t)sysconf( _SC_PAGESIZE );
+		return mprotect( (void *)( uiMemory - diff ), diff + uiLen, ( protect ? 0 : PROT_WRITE ) | PROT_READ | PROT_EXEC ) == 0;
 	}
 
 	#define VFUNC
