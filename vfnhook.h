@@ -102,7 +102,7 @@ void main( )
 	inline bool ProtectMemory( void *pMemory, size_t uiLen, bool protect )
 	{
 		static DWORD before = 0;
-		VirtualProtect( pMemory, uiLen, protect ? before : PAGE_EXECUTE_READWRITE, &before );
+		return VirtualProtect( pMemory, uiLen, protect ? before : PAGE_EXECUTE_READWRITE, &before ) == 1;
 	}
 
 	#define VFUNC __stdcall
