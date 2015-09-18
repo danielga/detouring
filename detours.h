@@ -305,6 +305,41 @@ namespace MologieDetours
 		{
 			CreateDetour();
 		}
+#else
+		/**
+		* @fn	Detour::Detour(const char* moduleName, const char* lpProcName, function_type pDetour)
+		*
+		* @brief	Creates a new local detour on an exported function.
+		*
+		* @author	Daniel Almeida
+		* @date	18.09.2015
+		*
+		* @param	moduleName  The Name of the module.
+		* @param	lpProcName	Name of the pointer to a proc.
+		* @param	pDetour   	The detour.
+		*/
+		Detour(const char* moduleName, const char* lpProcName, function_type pDetour)
+			: pSource_(reinterpret_cast<function_type>(dlsym(dlopen(moduleName, RTLD_LOCAL | RTLD_NOLOAD), lpProcName))), pDetour_(pDetour), instructionCount_(0)
+		{
+			CreateDetour();
+		}
+		/**
+		* @fn	Detour::Detour(void *module, const char* lpProcName, function_type pDetour)
+		*
+		* @brief	Creates a new local detour on an exported function.
+		*
+		* @author	Daniel Almeida
+		* @date	18.09.2015
+		*
+		* @param	module	  	The module.
+		* @param	lpProcName	Name of the pointer to a proc.
+		* @param	pDetour   	The detour.
+		*/
+		Detour(void *module, const char* lpProcName, function_type pDetour)
+			: pSource_(reinterpret_cast<function_type>(dlsym(module, lpProcName))), pDetour_(pDetour), instructionCount_(0)
+		{
+			CreateDetour();
+		}
 #endif
 
 		/**
