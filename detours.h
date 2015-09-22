@@ -113,6 +113,7 @@
 #else
 #  include <sys/mman.h>
 #  include <unistd.h>
+#  include <dlfcn.h>
 #  define MOLOGIE_DETOURS_MEMORY_POSIX_PAGEPROTECT(ADDRESS, SIZE, NEWPROT) \
 	( \
 		mprotect((void*)((((unsigned int)(ADDRESS) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_), pageSize_, NEWPROT) == 0 \
