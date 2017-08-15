@@ -54,8 +54,8 @@ void main( )
 #define VTBL( classptr ) ( *(uintptr_t *)classptr )
 #define PVFN_( classptr, offset ) ( VTBL( classptr ) + offset )
 #define VFN_( classptr, offset ) *(uintptr_t *)PVFN_( classptr, offset )
-#define PVFN( classptr, offset ) PVFN_( classptr, offset * sizeof( void * ) )
-#define VFN( classptr, offset ) VFN_( classptr, offset * sizeof( void * ) )
+#define PVFN( classptr, offset ) PVFN_( classptr, ( offset ) * sizeof( void * ) )
+#define VFN( classptr, offset ) VFN_( classptr, ( offset ) * sizeof( void * ) )
 
 #if defined _WIN32
 
