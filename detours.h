@@ -76,6 +76,9 @@
  * 
  * Changelog:
  * 
+ * Version 2.0.1:
+ *  Removed dependency on Windows.h header
+ * 
  * Version 2.0:
  * 	Added automated reverting if the target function has not been changed since the last access
  * 	Added different types of exceptions are thrown depending on the error
@@ -106,20 +109,20 @@
 #include <cstring>
 
 #ifdef _WIN32
-#  include <Windows.h>
-#  define MOLOGIE_DETOURS_MEMORY_UNPROTECT(ADDRESS, SIZE, OLDPROT) VirtualProtect((LPVOID)(ADDRESS), (SIZE_T)(SIZE), PAGE_EXECUTE_READWRITE, &OLDPROT)
-#  define MOLOGIE_DETOURS_MEMORY_REPROTECT(ADDRESS, SIZE, OLDPROT) VirtualProtect((LPVOID)(ADDRESS), (SIZE_T)(SIZE), OLDPROT, &OLDPROT)
-#  define MOLOGIE_DETOURS_MEMORY_WINDOWS_INIT(NAME) DWORD NAME
+// PAGE_EXECUTE_READWRITE == 0x40
+#  define MOLOGIE_DETOURS_MEMORY_UNPROTECT(ADDRESS, SIZE, OLDPROT) VirtualProtect((void *)(ADDRESS), (size_t)(SIZE), 0x40, &OLDPROT)
+#  define MOLOGIE_DETOURS_MEMORY_REPROTECT(ADDRESS, SIZE, OLDPROT) VirtualProtect((void *)(ADDRESS), (size_t)(SIZE), OLDPROT, &OLDPROT)
+#  define MOLOGIE_DETOURS_MEMORY_WINDOWS_INIT(NAME) unsigned long NAME
 #else
 #  include <sys/mman.h>
 #  include <unistd.h>
 #  include <dlfcn.h>
 #  define MOLOGIE_DETOURS_MEMORY_POSIX_PAGEPROTECT(ADDRESS, SIZE, NEWPROT) \
 	( \
-		mprotect((void*)((((unsigned int)(ADDRESS) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_), pageSize_, NEWPROT) == 0 \
+		mprotect((void*)((((uintptr_t)(ADDRESS) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_), pageSize_, NEWPROT) == 0 \
 	&&	( \
-			((((unsigned int)(ADDRESS) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_) == ((((unsigned int)(ADDRESS) + (SIZE) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_) \
-		||	mprotect((void*)((((unsigned int)(ADDRESS) + (SIZE) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_), pageSize_, NEWPROT) == 0 \
+			((((uintptr_t)(ADDRESS) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_) == ((((uintptr_t)(ADDRESS) + (SIZE) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_) \
+		||	mprotect((void*)((((uintptr_t)(ADDRESS) + (SIZE) + pageSize_ - 1) & ~(pageSize_ - 1)) - pageSize_), pageSize_, NEWPROT) == 0 \
 		) \
 	)
 #  define MOLOGIE_DETOURS_MEMORY_UNPROTECT(ADDRESS, SIZE, OLDPROT) MOLOGIE_DETOURS_MEMORY_POSIX_PAGEPROTECT((ADDRESS), (SIZE), PROT_READ | PROT_WRITE | PROT_EXEC)
@@ -135,6 +138,33 @@
  */
 namespace MologieDetours
 {
+#ifdef _WIN32
+	extern "C"
+	{
+		__declspec( dllimport ) int __stdcall VirtualProtect(
+			void *lpAddress,
+			size_t dwSize,
+			unsigned long flNewProtect,
+			unsigned long *lpflOldProtect
+		);
+
+		__declspec( dllimport ) void *__stdcall GetCurrentProcess( );
+
+		__declspec( dllimport ) int __stdcall FlushInstructionCache(
+			void *hProcess,
+			const void *lpBaseAddress,
+			size_t dwSize
+		);
+
+		__declspec( dllimport ) void *__stdcall GetProcAddress(
+			void *hModule,
+			const char *lpProcName
+		);
+
+		__declspec( dllimport ) void *__stdcall GetModuleHandleA( const char *lpModuleName );
+	}
+#endif
+
 	/**
 	 * @typedef	address_type
 	 *
@@ -285,12 +315,12 @@ namespace MologieDetours
 		 * @param	pDetour   	The detour.
 		 */
 		Detour(const char* moduleName, const char* lpProcName, function_type pDetour)
-			: pSource_(reinterpret_cast<function_type>(GetProcAddress(GetModuleHandle(moduleName), lpProcName))), pDetour_(pDetour), instructionCount_(0)
+			: pSource_(reinterpret_cast<function_type>(GetProcAddress(GetModuleHandleA(moduleName), lpProcName))), pDetour_(pDetour), instructionCount_(0)
 		{
 			CreateDetour();
 		}
 		/**
-		 * @fn	Detour::Detour(HMODULE module, const char* lpProcName, function_type pDetour)
+		 * @fn	Detour::Detour(void *module, const char* lpProcName, function_type pDetour)
 		 *
 		 * @brief	Creates a new local detour on an exported function.
 		 *
@@ -301,7 +331,7 @@ namespace MologieDetours
 		 * @param	lpProcName	Name of the pointer to a proc.
 		 * @param	pDetour   	The detour.
 		 */
-		Detour(HMODULE module, const char* lpProcName, function_type pDetour)
+		Detour(void *module, const char* lpProcName, function_type pDetour)
 			: pSource_(reinterpret_cast<function_type>(GetProcAddress(module, lpProcName))), pDetour_(pDetour), instructionCount_(0)
 		{
 			CreateDetour();
@@ -615,10 +645,10 @@ namespace MologieDetours
 			while(pbCurOp < baseNew + size)
 			{
 #if defined(MOLOGIE_DETOURS_HDE_32)
-				hde32s hs = { 0 };
+				hde32s hs;
 				uint8_t i = static_cast<uint8_t>(hde32_disasm(pbCurOp, &hs));
 #elif defined(MOLOGIE_DETOURS_HDE_64)
-				hde64s hs = { 0 };
+				hde64s hs;
 				uint8_t i = static_cast<uint8_t>(hde64_disasm(pbCurOp, &hs));
 #endif
 				if(i == 0)
@@ -631,7 +661,7 @@ namespace MologieDetours
 				{
 #if defined(MOLOGIE_DETOURS_HDE_32)
 					if((hs.flags & F_IMM8) || (hs.flags & F_IMM16))
-#elif defined(MOLOGIE_DETOURS_HDE64)
+#elif defined(MOLOGIE_DETOURS_HDE_64)
 					if((hs.flags & F_IMM8) || (hs.flags & F_IMM16) || (hs.flags & F_IMM32))
 #endif
 					{
@@ -673,10 +703,10 @@ namespace MologieDetours
 		size_t GetInstructionSize(const void* code)
 		{
 #if defined(MOLOGIE_DETOURS_HDE_32)
-			hde32s hs = { 0 };
+			hde32s hs;
 			return hde32_disasm(code, &hs);
 #elif defined(MOLOGIE_DETOURS_HDE_64)
-			hde64s hs = { 0 };
+			hde64s hs;
 			return hde64_disasm(code, &hs);
 #endif
 		}

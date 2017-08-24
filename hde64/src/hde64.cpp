@@ -10,7 +10,9 @@
 #include "../include/hde64.h"
 #include "../include/table64.h"
 
+#ifdef _MSC_VER
 #pragma warning(disable:4701 4706)
+#endif
 
 unsigned int hde64_disasm(const void *code, hde64s *hs)
 {
@@ -149,7 +151,7 @@ error_opcode:
 						else
 							break;
 					}
-					hs->flags |= F_ERROR | F_ERROR_LOCK;
+				hs->flags |= F_ERROR | F_ERROR_LOCK;
 no_lock_error:
 					;
 			}
@@ -201,7 +203,7 @@ no_lock_error:
 					else
 						break;
 				}
-				goto no_error_operand;
+			goto no_error_operand;
 		} else if (hs->opcode2) {
 			switch (opcode) {
 			case 0x50: case 0xd7: case 0xf7:
