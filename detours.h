@@ -75,7 +75,10 @@
  * 
  * 
  * Changelog:
- * 
+ *
+ * Version 2.0.2:
+ *  Fixed a couple of bugs related to x86-64 on non-Windows platforms
+ *
  * Version 2.0.1:
  *  Removed dependency on Windows.h header
  * 
