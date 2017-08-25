@@ -132,7 +132,12 @@
 #  define MOLOGIE_DETOURS_MEMORY_REPROTECT(ADDRESS, SIZE, OLDPROT) MOLOGIE_DETOURS_MEMORY_POSIX_PAGEPROTECT((ADDRESS), (SIZE), PROT_READ | PROT_EXEC)
 #  define MOLOGIE_DETOURS_MEMORY_WINDOWS_INIT(NAME)
 #endif
-#define MOLOGIE_DETOURS_DETOUR_SIZE (1 + sizeof(void*))
+
+#if defined(MOLOGIE_DETOURS_HDE_32)
+#define MOLOGIE_DETOURS_DETOUR_SIZE (1 + sizeof(int32_t))
+#elif defined(MOLOGIE_DETOURS_HDE_64)
+#define MOLOGIE_DETOURS_DETOUR_SIZE (2 + sizeof(void*) + 2 + 1)
+#endif
 
 /**
  * @namespace	MologieDetours
@@ -501,6 +506,12 @@ namespace MologieDetours
 				pSource_ = reinterpret_cast<function_type>(reinterpret_cast<address_type>(pSource_) + 2);
 				targetFunction = reinterpret_cast<uint8_t*>(pSource_);
 			}
+			// Check whether the function starts with a relative far jump and assume a debug compilation thunk
+			else if(targetFunction[0] == 0xE9)
+			{
+				pSource_ = reinterpret_cast<function_type>(reinterpret_cast<address_type>(pSource_) + 5 + *reinterpret_cast<int32_t*>(reinterpret_cast<address_type>(pSource_) + 1));
+				targetFunction = reinterpret_cast<uint8_t*>(pSource_);
+			}
 #endif
 			// Used for finding the instruction count
 			uint8_t* pbCurOp = targetFunction;
@@ -533,8 +544,24 @@ namespace MologieDetours
 
 			// Jump back to original function after executing replaced code
 			uint8_t* jmpBack = backupOriginalCode_ + instructionCount_;
+#if defined(MOLOGIE_DETOURS_HDE_32)
 			jmpBack[0] = 0xE9;
 			*reinterpret_cast<address_pointer_type>(jmpBack + 1) = reinterpret_cast<address_type>(pSource_) + instructionCount_ - reinterpret_cast<address_type>(jmpBack) - MOLOGIE_DETOURS_DETOUR_SIZE;
+#elif defined(MOLOGIE_DETOURS_HDE_64)
+			/* 0x49 is the 'movabs' opcode. */
+			jmpBack[0] = 0x49;
+			/* 0xBB is the %r11 register. */
+			jmpBack[1] = 0xBB;
+
+			/* Write the destination address. */
+			*reinterpret_cast<address_pointer_type>(jmpBack + 2) = reinterpret_cast<address_type>(pSource_) + instructionCount_;
+
+			/* 0x41 and 0xFF are the encoded unconditional jump instruction opcode. */
+			jmpBack[10] = 0x41;
+			jmpBack[11] = 0xFF;
+			/* 0xE3 is the %r11 register. */
+			jmpBack[12] = 0xE3;
+#endif
 
 			// Make backupOriginalCode_ executable
 			if(!MOLOGIE_DETOURS_MEMORY_UNPROTECT(backupOriginalCode_, instructionCount_ + MOLOGIE_DETOURS_DETOUR_SIZE, dwProt))
@@ -544,8 +571,24 @@ namespace MologieDetours
 
 			// Create a new trampoline which points at the detour
 			trampoline_ = new uint8_t[MOLOGIE_DETOURS_DETOUR_SIZE];
+#if defined(MOLOGIE_DETOURS_HDE_32)
 			trampoline_[0] = 0xE9;
 			*reinterpret_cast<address_pointer_type>(trampoline_ + 1) = reinterpret_cast<address_type>(pDetour_) - reinterpret_cast<address_type>(trampoline_) - MOLOGIE_DETOURS_DETOUR_SIZE;
+#elif defined(MOLOGIE_DETOURS_HDE_64)
+			/* 0x49 is the 'movabs' opcode. */
+			trampoline_[0] = 0x49;
+			/* 0xBB is the %r11 register. */
+			trampoline_[1] = 0xBB;
+
+			/* Write the destination address. */
+			*reinterpret_cast<address_pointer_type>(trampoline_ + 2) = reinterpret_cast<address_type>(pDetour_);
+
+			/* 0x41 and 0xFF are the encoded unconditional jump instruction opcode. */
+			trampoline_[10] = 0x41;
+			trampoline_[11] = 0xFF;
+			/* 0xE3 is the %r11 register. */
+			trampoline_[12] = 0xE3;
+#endif
 
 			// Make trampoline_ executable
 			if(!MOLOGIE_DETOURS_MEMORY_UNPROTECT(trampoline_, MOLOGIE_DETOURS_DETOUR_SIZE, dwProt))
@@ -560,8 +603,24 @@ namespace MologieDetours
 			}
 
 			// Redirect original function to trampoline
+#if defined(MOLOGIE_DETOURS_HDE_32)
 			targetFunction[0] = 0xE9;
 			*reinterpret_cast<address_pointer_type>(targetFunction + 1) = reinterpret_cast<address_type>(trampoline_) - reinterpret_cast<address_type>(targetFunction) - MOLOGIE_DETOURS_DETOUR_SIZE;
+#elif defined(MOLOGIE_DETOURS_HDE_64)
+			/* 0x49 is the 'movabs' opcode. */
+			targetFunction[0] = 0x49;
+			/* 0xBB is the %r11 register. */
+			targetFunction[1] = 0xBB;
+
+			/* Write the destination address. */
+			*reinterpret_cast<address_pointer_type>(targetFunction + 2) = reinterpret_cast<address_type>(trampoline_);
+
+			/* 0x41 and 0xFF are the encoded unconditional jump instruction opcode. */
+			targetFunction[10] = 0x41;
+			targetFunction[11] = 0xFF;
+			/* 0xE3 is the %r11 register. */
+			targetFunction[12] = 0xE3;
+#endif
 
 			// Create backup of detour
 			backupDetour_ = new uint8_t[MOLOGIE_DETOURS_DETOUR_SIZE];
