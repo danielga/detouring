@@ -76,6 +76,9 @@
  * 
  * Changelog:
  *
+ * Version 2.0.3:
+ *  Fixed x86-64 jumps and debug compilation (if a relative far jump is found at the top, assume it's a debug thunk)
+ *
  * Version 2.0.2:
  *  Fixed a couple of bugs related to x86-64 on non-Windows platforms
  *
