@@ -76,6 +76,12 @@
  * 
  * Changelog:
  *
+ * Version 2.0.4:
+ *  Removed debug compilation fix (placed in a more appropriate header)
+ *
+ * Version 2.0.3:
+ *  Fixed x86-64 jumps and debug compilation (if a relative far jump is found at the top, assume it's a debug thunk)
+ *
  * Version 2.0.2:
  *  Fixed a couple of bugs related to x86-64 on non-Windows platforms
  *
@@ -504,12 +510,6 @@ namespace MologieDetours
 				// This will result in the hotpatch being called first, however we won't break things here
 				// Use the DetourHotpatch class to create a hotpatch instead.
 				pSource_ = reinterpret_cast<function_type>(reinterpret_cast<address_type>(pSource_) + 2);
-				targetFunction = reinterpret_cast<uint8_t*>(pSource_);
-			}
-			// Check whether the function starts with a relative far jump and assume a debug compilation thunk
-			else if(targetFunction[0] == 0xE9)
-			{
-				pSource_ = reinterpret_cast<function_type>(reinterpret_cast<address_type>(pSource_) + 5 + *reinterpret_cast<int32_t*>(reinterpret_cast<address_type>(pSource_) + 1));
 				targetFunction = reinterpret_cast<uint8_t*>(pSource_);
 			}
 #endif
