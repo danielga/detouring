@@ -28,7 +28,7 @@
 #include "hde.h"
 
 #if defined(MOLOGIE_DETOURS_HDE_32)
-#  include "hde32/src/hde32.cpp"
+#  include "hde32.c"
 #elif defined(MOLOGIE_DETOURS_HDE_64)
-#  include "hde64/src/hde64.cpp"
+#  include "hde64.c"
 #endif
