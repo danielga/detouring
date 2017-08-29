@@ -49,7 +49,6 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <type_traits>
-#include "detours.h"
 
 #if defined __linux || defined __APPLE__
 
@@ -96,12 +95,6 @@ namespace ClassDetouring
 
 	typedef std::unordered_map<void *, Member> CacheMap;
 
-	template<typename RetType, typename Class, typename... Args>
-	using Method = RetType ( Class::* )( Args... );
-
-	template<typename RetType, typename Class, typename... Args>
-	using MethodConst = RetType ( Class::* )( Args... ) const;
-
 	template<typename Class>
 	inline void **GetVirtualTable( Class *instance )
 	{
@@ -109,10 +102,19 @@ namespace ClassDetouring
 	}
 
 	template<typename RetType, typename Class, typename... Args>
-	inline void *GetAddress( Method<RetType, Class, Args...> method )
+	inline void *GetAddress( RetType ( Class::* method )( Args... ) )
 	{
-		Method<RetType, Class, Args...> *pmethod = &method;
+		RetType ( Class::** pmethod )( Args... ) = &method;
+
+#ifdef _MSC_VER
+
 		void *address = *reinterpret_cast<void **>( pmethod );
+
+#else
+
+		void *address = reinterpret_cast<void *>( pmethod );
+
+#endif
 
 		// Check whether the function starts with a relative far jump and assume a debug compilation thunk
 		uint8_t *method_code = reinterpret_cast<uint8_t *>( address );
@@ -127,7 +129,7 @@ namespace ClassDetouring
 	inline Member GetVirtualAddress(
 		void **vtable,
 		size_t size,
-		Method<RetType, Class, Args...> method
+		RetType ( Class::* method )( Args... )
 	)
 	{
 		if( vtable == nullptr || size == 0 || method == nullptr )
@@ -172,7 +174,7 @@ namespace ClassDetouring
 
 		union u_addr
 		{
-			Method<RetType, Class, Args...> func;
+			RetType ( Class::* func )( Args... );
 			void *addr;
 			uintptr_t offset_plus_one;
 		};
@@ -200,19 +202,6 @@ namespace ClassDetouring
 	template<typename Target, typename Substitute>
 	class Proxy
 	{
-	private:
-		template<typename RetType, typename... Args>
-		using TargetMethod = Method<RetType, Target, Args...>;
-
-		template<typename RetType, typename... Args>
-		using TargetMethodConst = MethodConst<RetType, Target, Args...>;
-
-		template<typename RetType, typename... Args>
-		using SubstituteMethod = Method<RetType, Substitute, Args...>;
-
-		template<typename RetType, typename... Args>
-		using SubstituteMethodConst = MethodConst<RetType, Substitute, Args...>;
-
 	protected:
 		Proxy( )
 		{ }
@@ -276,23 +265,23 @@ namespace ClassDetouring
 		}
 
 		template<typename RetType, typename... Args>
-		static bool IsHooked( TargetMethod<RetType, Args...> original )
+		static bool IsHooked( RetType ( Target::* original )( Args... ) )
 		{
 			return IsHookedInternal( original );
 		}
 
 		template<typename RetType, typename... Args>
-		static bool IsHooked( TargetMethodConst<RetType, Args...> original )
+		static bool IsHooked( RetType ( Target::* original )( Args... ) const )
 		{
 			return IsHookedInternal(
-				reinterpret_cast< TargetMethod<RetType, Args...> >( original )
+				reinterpret_cast<RetType ( Target::* )( Args... )>( original )
 			);
 		}
 
 		template<typename RetType, typename... Args>
 		static bool Hook(
-			TargetMethod<RetType, Args...> original,
-			SubstituteMethod<RetType, Args...> substitute
+			RetType ( Target::* original )( Args... ),
+			RetType ( Substitute::* substitute )( Args... )
 		)
 		{
 			return HookInternal( original, substitute );
@@ -300,34 +289,34 @@ namespace ClassDetouring
 
 		template<typename RetType, typename... Args>
 		static bool Hook(
-			TargetMethodConst<RetType, Args...> original,
-			SubstituteMethodConst<RetType, Args...> substitute
+			RetType ( Target::* original )( Args... ) const,
+			RetType ( Substitute::* substitute )( Args... ) const
 		)
 		{
 			return HookInternal(
-				reinterpret_cast< TargetMethod<RetType, Args...> >( original ),
-				reinterpret_cast< TargetMethod<RetType, Args...> >( substitute )
+				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
+				reinterpret_cast<RetType ( Target::* )( Args... )>( substitute )
 			);
 		}
 
 		template<typename RetType, typename... Args>
-		static bool UnHook( TargetMethod<RetType, Args...> original )
+		static bool UnHook( RetType ( Target::* original )( Args... ) )
 		{
 			return UnHookInternal( original );
 		}
 
 		template<typename RetType, typename... Args>
-		static bool UnHook( TargetMethodConst<RetType, Args...> original )
+		static bool UnHook( RetType ( Target::* original )( Args... ) const )
 		{
 			return UnHookInternal(
-				reinterpret_cast< TargetMethod<RetType, Args...> >( original )
+				reinterpret_cast<RetType ( Target::* )( Args... )>( original )
 			);
 		}
 
 		template<typename RetType, typename... Args>
 		static RetType Call(
 			Target *instance,
-			TargetMethod<RetType, Args...> original,
+			RetType ( Target::* original )( Args... ),
 			Args... args
 		)
 		{
@@ -337,43 +326,43 @@ namespace ClassDetouring
 		template<typename RetType, typename... Args>
 		static RetType Call(
 			Target *instance,
-			TargetMethodConst<RetType, Args...> original,
+			RetType ( Target::* original )( Args... ) const,
 			Args... args
 		)
 		{
 			return CallInternal(
 				instance,
-				reinterpret_cast< TargetMethod<RetType, Args...> >( original ),
+				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
 				args...
 			);
 		}
 
 		template<typename RetType, typename... Args>
-		inline RetType Call( TargetMethod<RetType, Args...> original, Args... args )
+		inline RetType Call( RetType ( Target::* original )( Args... ), Args... args )
 		{
 			return Call( reinterpret_cast<Target *>( this ), original, args... );
 		}
 
 		template<typename RetType, typename... Args>
-		inline RetType Call( TargetMethodConst<RetType, Args...> original, Args... args )
+		inline RetType Call( RetType ( Target::* original )( Args... ) const, Args... args )
 		{
 			return Call( reinterpret_cast<Target *>( this ), original, args... );
 		}
 
 		template<typename RetType, typename... Args>
-		static Member GetTargetVirtualAddress( TargetMethod<RetType, Args...> method )
+		static Member GetTargetVirtualAddress( RetType ( Target::* method )( Args... ) )
 		{
 			return GetVirtualAddress( target_cache, target_vtable, target_size, method );
 		}
 
 		template<typename RetType, typename... Args>
-		static Member GetTargetVirtualAddress( TargetMethodConst<RetType, Args...> method )
+		static Member GetTargetVirtualAddress( RetType ( Target::* method )( Args... ) const )
 		{
 			return GetVirtualAddress( target_cache, target_vtable, target_size, method );
 		}
 
 		template<typename RetType, typename... Args>
-		static Member GetSubstituteVirtualAddress( SubstituteMethod<RetType, Args...> method )
+		static Member GetSubstituteVirtualAddress( RetType ( Substitute::* method )( Args... ) )
 		{
 			return GetVirtualAddress(
 				substitute_cache,
@@ -384,7 +373,7 @@ namespace ClassDetouring
 		}
 
 		template<typename RetType, typename... Args>
-		static Member GetSubstituteVirtualAddress( SubstituteMethodConst<RetType, Args...> method )
+		static Member GetSubstituteVirtualAddress( RetType ( Substitute::* method )( Args... ) const )
 		{
 			return GetVirtualAddress(
 				substitute_cache,
@@ -401,7 +390,7 @@ namespace ClassDetouring
 			CacheMap &cache,
 			void **vtable,
 			size_t size,
-			Method<RetType, Class, Args...> method
+			RetType ( Class::* method )( Args... )
 		)
 		{
 			void *member = GetAddress( method );
@@ -440,7 +429,7 @@ namespace ClassDetouring
 		}
 
 		template<typename RetType, typename... Args>
-		static bool IsHookedInternal( TargetMethod<RetType, Args...> original )
+		static bool IsHookedInternal( RetType ( Target::* original )( Args... ) )
 		{
 			Member target = GetTargetVirtualAddress( original );
 			if( target.index >= target_size )
@@ -451,8 +440,8 @@ namespace ClassDetouring
 
 		template<typename RetType, typename... Args>
 		static bool HookInternal(
-			TargetMethod<RetType, Args...> original,
-			SubstituteMethod<RetType, Args...> substitute
+			RetType ( Target::* original )( Args... ),
+			RetType ( Substitute::* substitute )( Args... )
 		)
 		{
 			if( IsHooked( original ) )
@@ -474,7 +463,7 @@ namespace ClassDetouring
 		}
 
 		template<typename RetType, typename... Args>
-		static bool UnHookInternal( TargetMethod<RetType, Args...> original )
+		static bool UnHookInternal( RetType ( Target::* original )( Args... ) )
 		{
 			if( !IsHooked( original ) )
 				return false;
@@ -495,7 +484,8 @@ namespace ClassDetouring
 		template<typename RetType, typename... Args>
 		static RetType CallInternal(
 			Target *instance,
-			TargetMethod<RetType, Args...> original, Args... args
+			RetType ( Target::* original )( Args... ),
+			Args... args
 		)
 		{
 			Member target = GetTargetVirtualAddress( original );
@@ -503,7 +493,7 @@ namespace ClassDetouring
 				return RetType( );
 
 			target.address = original_vtable[target.index];
-			auto typedfunc = reinterpret_cast<TargetMethod<RetType, Args...> *>( &target );
+			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &target );
 			return ( instance->**typedfunc )( args... );
 		}
 
