@@ -36,7 +36,7 @@
 *************************************************************************/
 
 /*************************************************************************
-* Implementation of the ClassDetouring::GetVirtualAddress function heavily
+* Implementation of the Detouring::GetVirtualAddress function heavily
 * based on meepdarknessmeep's vhook.h header at
 * https://github.com/glua/gm_fshook/blob/master/src/vhook.h
 * Thanks a lot, xoxo.
@@ -61,7 +61,7 @@
 
 #endif
 
-namespace ClassDetouring
+namespace Detouring
 {
 
 #if defined _WIN32
@@ -200,18 +200,18 @@ namespace ClassDetouring
 	}
 
 	template<typename Target, typename Substitute>
-	class Proxy
+	class ClassProxy
 	{
 	protected:
-		Proxy( )
+		ClassProxy( )
 		{ }
 
-		Proxy( Target *instance )
+		ClassProxy( Target *instance )
 		{
 			Initialize( instance );
 		}
 
-		virtual ~Proxy( )
+		virtual ~ClassProxy( )
 		{
 			if( target_vtable != nullptr && target_size != 0 )
 			{
@@ -397,7 +397,7 @@ namespace ClassDetouring
 			if( cache.find( member ) != cache.end( ) )
 				return cache[member];
 
-			Member address = ClassDetouring::GetVirtualAddress( vtable, size, method );
+			Member address = Detouring::GetVirtualAddress( vtable, size, method );
 
 			if( address.index < size )
 				cache[member] = address;
@@ -507,17 +507,17 @@ namespace ClassDetouring
 	};
 
 	template<typename Target, typename Substitute>
-	size_t Proxy<Target, Substitute>::target_size = 0;
+	size_t ClassProxy<Target, Substitute>::target_size = 0;
 	template<typename Target, typename Substitute>
-	void **Proxy<Target, Substitute>::target_vtable = nullptr;
+	void **ClassProxy<Target, Substitute>::target_vtable = nullptr;
 	template<typename Target, typename Substitute>
-	CacheMap Proxy<Target, Substitute>::target_cache;
+	CacheMap ClassProxy<Target, Substitute>::target_cache;
 	template<typename Target, typename Substitute>
-	std::vector<void *> Proxy<Target, Substitute>::original_vtable;
+	std::vector<void *> ClassProxy<Target, Substitute>::original_vtable;
 	template<typename Target, typename Substitute>
-	size_t Proxy<Target, Substitute>::substitute_size = 0;
+	size_t ClassProxy<Target, Substitute>::substitute_size = 0;
 	template<typename Target, typename Substitute>
-	void **Proxy<Target, Substitute>::substitute_vtable = nullptr;
+	void **ClassProxy<Target, Substitute>::substitute_vtable = nullptr;
 	template<typename Target, typename Substitute>
-	CacheMap Proxy<Target, Substitute>::substitute_cache;
+	CacheMap ClassProxy<Target, Substitute>::substitute_cache;
 }
