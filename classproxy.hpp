@@ -1,5 +1,5 @@
 /*************************************************************************
-* ClassDetouring
+* Detouring::ClassProxy
 * A C++ header that allows you to "proxy" virtual tables and receive
 * calls in substitute classes. Contains helpers for detouring regular
 * member functions as well.
@@ -49,6 +49,7 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <type_traits>
+#include "hook.hpp"
 
 #if defined __linux || defined __APPLE__
 

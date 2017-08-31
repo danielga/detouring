@@ -1,5 +1,5 @@
 /*************************************************************************
-* Detours
+* Detouring::Hook
 * A C++ header that allows you to detour functions.
 *------------------------------------------------------------------------
 * Copyright (c) 2017, Daniel Almeida
