@@ -350,19 +350,19 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static Member GetTargetVirtualAddress( RetType ( Target::* method )( Args... ) )
 		{
-			return GetVirtualAddress( target_cache, target_vtable, target_size, method );
+			return GetVirtualAddressInternal( target_cache, target_vtable, target_size, method );
 		}
 
 		template<typename RetType, typename... Args>
 		static Member GetTargetVirtualAddress( RetType ( Target::* method )( Args... ) const )
 		{
-			return GetVirtualAddress( target_cache, target_vtable, target_size, method );
+			return GetVirtualAddressInternal( target_cache, target_vtable, target_size, method );
 		}
 
 		template<typename RetType, typename... Args>
 		static Member GetSubstituteVirtualAddress( RetType ( Substitute::* method )( Args... ) )
 		{
-			return GetVirtualAddress(
+			return GetVirtualAddressInternal(
 				substitute_cache,
 				substitute_vtable,
 				substitute_size,
@@ -373,7 +373,7 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static Member GetSubstituteVirtualAddress( RetType ( Substitute::* method )( Args... ) const )
 		{
-			return GetVirtualAddress(
+			return GetVirtualAddressInternal(
 				substitute_cache,
 				substitute_vtable,
 				substitute_size,
@@ -384,7 +384,7 @@ namespace Detouring
 	private:
 		// can be used with interfaces and implementations
 		template<typename RetType, typename Class, typename... Args>
-		static Member GetVirtualAddress(
+		static Member GetVirtualAddressInternal(
 			CacheMap &cache,
 			void **vtable,
 			size_t size,
@@ -396,7 +396,7 @@ namespace Detouring
 			if( it != cache.end( ) )
 				return ( *it ).second;
 
-			Member address = Detouring::GetVirtualAddress( vtable, size, method );
+			Member address = GetVirtualAddress( vtable, size, method );
 
 			if( address.index < size )
 				cache[member] = address;
