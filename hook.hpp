@@ -39,7 +39,6 @@
 
 namespace Detouring
 {
-	template<typename Method>
 	class Hook
 	{
 	public:
@@ -49,7 +48,7 @@ namespace Detouring
 			trampoline( nullptr )
 		{ }
 
-		Hook( Method _target, Method _detour ) :
+		Hook( void *_target, void *_detour ) :
 			target( nullptr ),
 			detour( nullptr ),
 			trampoline( nullptr )
@@ -67,7 +66,7 @@ namespace Detouring
 			return target != nullptr && detour != nullptr;
 		}
 
-		bool Create( Method _target, Method _detour )
+		bool Create( void *_target, void *_detour )
 		{
 			if( _target == nullptr || _detour == nullptr )
 				return false;
@@ -75,7 +74,7 @@ namespace Detouring
 			target = _target;
 			detour = _detour;
 
-			if( MH_CreateHook( _target, _detour, reinterpret_cast<void **>( &trampoline ) ) != MH_OK )
+			if( MH_CreateHook( _target, _detour, &trampoline ) != MH_OK )
 				return false;
 
 			return MH_EnableHook( _target ) == MH_OK;
@@ -97,20 +96,50 @@ namespace Detouring
 
 		bool Enable( )
 		{
-			return MH_EnableHook( _target ) == MH_OK;
+			return MH_EnableHook( target ) == MH_OK;
 		}
 
 		bool Disable( )
 		{
-			return MH_DisableHook( _target ) == MH_OK;
+			return MH_DisableHook( target ) == MH_OK;
+		}
+
+		void *GetTarget( ) const
+		{
+			return target;
+		}
+
+		template<typename Method>
+		Method GetTarget( ) const
+		{
+			return reinterpret_cast<Method>( target );
+		}
+
+		void *GetDetour( ) const
+		{
+			return detour;
+		}
+
+		template<typename Method>
+		Method GetDetour( ) const
+		{
+			return reinterpret_cast<Method>( detour );
+		}
+
+		void *GetTrampoline( ) const
+		{
+			return trampoline;
+		}
+
+		template<typename Method>
+		Method GetTrampoline( ) const
+		{
+			return reinterpret_cast<Method>( trampoline );
 		}
 
 	private:
-		Method target;
-		Method detour;
-		Method trampoline;
+		void *target;
+		void *detour;
+		void *trampoline;
 	};
-
-	template<typename Return, typename... Args>
-	class Hook<Return ( * )( Args... )>;
 }
