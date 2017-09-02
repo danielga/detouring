@@ -136,19 +136,25 @@ namespace Detouring
 		if( vtable == nullptr || size == 0 || method == nullptr )
 			return Member( );
 
-#if defined _WIN32
+#ifdef _MSC_VER
 
 		void *member = GetAddress( method );
 		uint8_t *addr = reinterpret_cast<uint8_t *>( member );
 
-		// check for rel jmp opcode (debug mode adds this layer of indirection)
-		if( addr[0] == 0xE9 )
-			addr += 5 + *reinterpret_cast<int32_t *>( &addr[1] );
+#ifdef _WIN64
 
-		// check for jmp functions
+		// x86-64, mov rax, [rcx]
+		if( addr[0] == 0x48 )
+			addr += 3;
+
+#else
+
 		if( addr[0] == 0x8B )
 			addr += 2;
 
+#endif
+
+		// check for jmp functions
 		if( addr[0] == 0xFF && ( ( addr[1] >> 4 ) & 3 ) == 2 )
 		{
 			uint8_t jumptype = addr[1] >> 6;
@@ -173,23 +179,14 @@ namespace Detouring
 
 #else
 
-		union u_addr
-		{
-			RetType ( Class::* func )( Args... );
-			void *addr;
-			uintptr_t offset_plus_one;
-		};
-
 		// TODO: find better way to find which impl it is using
-		u_addr u;
-		u.func = method;
-
-		size_t offset = ( u.offset_plus_one - 1 ) / sizeof( void * );
+		void *address = *reinterpret_cast<void **>( &method );
+		size_t offset = ( reinterpret_cast<uintptr_t>( address ) - 1 ) / sizeof( void * );
 		if( offset >= size )
 		{
 			for( size_t index = 0; index < size; ++index )
-				if( vtable[index] == u.addr )
-					return Member( index, u.addr );
+				if( vtable[index] == address )
+					return Member( index, address );
 
 			return Member( );
 		}
@@ -395,8 +392,9 @@ namespace Detouring
 		)
 		{
 			void *member = GetAddress( method );
-			if( cache.find( member ) != cache.end( ) )
-				return cache[member];
+			auto it = cache.find( member );
+			if( it != cache.end( ) )
+				return ( *it ).second;
 
 			Member address = Detouring::GetVirtualAddress( vtable, size, method );
 
