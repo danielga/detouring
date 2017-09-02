@@ -95,6 +95,7 @@ namespace Detouring
 	};
 
 	typedef std::unordered_map<void *, Member> CacheMap;
+	typedef std::unordered_map<void *, Detouring::Hook> HookMap;
 
 	template<typename Class>
 	inline void **GetVirtualTable( Class *instance )
@@ -430,11 +431,15 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static bool IsHookedInternal( RetType ( Target::* original )( Args... ) )
 		{
-			Member target = GetTargetVirtualAddress( original );
-			if( target.index >= target_size )
+			auto it = hooks.find( GetAddress( original ) );
+			if( it != hooks.end( ) )
+				return true;
+
+			Member vtarget = GetTargetVirtualAddress( original );
+			if( vtarget.index >= target_size )
 				return false;
 
-			return target_vtable[target.index] != original_vtable[target.index];
+			return target_vtable[vtarget.index] != original_vtable[vtarget.index];
 		}
 
 		template<typename RetType, typename... Args>
@@ -443,35 +448,59 @@ namespace Detouring
 			RetType ( Substitute::* substitute )( Args... )
 		)
 		{
-			if( IsHooked( original ) )
-				return false;
-
 			Member target = GetTargetVirtualAddress( original );
-			if( target.index >= target_size )
+			if( target.index < target_size )
+			{
+				if( target_vtable[target.index] != original_vtable[target.index] )
+					return false;
+
+				Member subst = GetSubstituteVirtualAddress( substitute );
+				if( subst.index >= substitute_size )
+					return false;
+
+				ProtectMemory( target_vtable + target.index, sizeof( void * ), false );
+				target_vtable[target.index] = subst.address;
+				ProtectMemory( target_vtable + target.index, sizeof( void * ), true );
+
+				return true;
+			}
+
+			auto it = hooks.find( GetAddress( original ) );
+			if( it != hooks.end( ) )
 				return false;
 
-			Member subst = GetSubstituteVirtualAddress( substitute );
-			if( subst.index >= substitute_size )
+			void *address = GetAddress( original );
+			if( address == nullptr )
 				return false;
 
-			ProtectMemory( target_vtable + target.index, sizeof( void * ), false );
-			target_vtable[target.index] = subst.address;
-			ProtectMemory( target_vtable + target.index, sizeof( void * ), true );
+			void *subst = GetAddress( substitute );
+			if( subst == nullptr )
+				return false;
 
-			return true;
+			Detouring::Hook &hook = hooks[address];
+			if( !hook.Create( address, subst ) )
+				return false;
+
+			return hook.Enable( );
 		}
 
 		template<typename RetType, typename... Args>
 		static bool UnHookInternal( RetType ( Target::* original )( Args... ) )
 		{
-			if( !IsHooked( original ) )
-				return false;
+			auto it = hooks.find( GetAddress( original ) );
+			if( it != hooks.end( ) )
+			{
+				hooks.erase( it );
+				return true;
+			}
 
 			Member target = GetTargetVirtualAddress( original );
 			if( target.index >= target_size )
 				return false;
 
 			void *vfunction = original_vtable[target.index];
+			if( target_vtable[target.index] == vfunction )
+				return false;
 
 			ProtectMemory( target_vtable + target.index, sizeof( void * ), false );
 			target_vtable[target.index] = vfunction;
@@ -487,11 +516,31 @@ namespace Detouring
 			Args... args
 		)
 		{
-			Member target = GetTargetVirtualAddress( original );
+			Member target;
+			void *address = GetAddress( original );
+			auto it = hooks.find( address );
+			if( it != hooks.end( ) )
+			{
+				target.address = ( *it ).second.GetTrampoline( );
+				target.index = 0;
+			}
+
+			if( target.index >= target_size )
+			{
+				target = GetTargetVirtualAddress( original );
+				target.address = original_vtable[target.index];
+			}
+
+			if( target.index >= target_size )
+			{
+				target.address = address;
+				if( target.address != nullptr )
+					target.index = 0;
+			}
+
 			if( target.index >= target_size )
 				return RetType( );
 
-			target.address = original_vtable[target.index];
 			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &target );
 			return ( instance->**typedfunc )( args... );
 		}
@@ -503,6 +552,7 @@ namespace Detouring
 		static size_t substitute_size;
 		static void **substitute_vtable;
 		static CacheMap substitute_cache;
+		static HookMap hooks;
 	};
 
 	template<typename Target, typename Substitute>
@@ -519,4 +569,6 @@ namespace Detouring
 	void **ClassProxy<Target, Substitute>::substitute_vtable = nullptr;
 	template<typename Target, typename Substitute>
 	CacheMap ClassProxy<Target, Substitute>::substitute_cache;
+	template<typename Target, typename Substitute>
+	HookMap ClassProxy<Target, Substitute>::hooks;
 }
