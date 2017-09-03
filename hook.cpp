@@ -33,53 +33,107 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************/
 
-#pragma once
+#include "hook.hpp"
+#include "minhook/include/minhook.h"
+#include <stdexcept>
+#include <iostream>
 
 namespace Detouring
 {
-	class Hook
+	class Initializer
 	{
 	public:
-		Hook( );
-		Hook( void *_target, void *_detour );
-
-		~Hook( );
-
-		bool IsValid( ) const;
-
-		bool Create( void *_target, void *_detour );
-		bool Destroy( );
-
-		bool Enable( );
-		bool Disable( );
-
-		void *GetTarget( ) const;
-
-		template<typename Method>
-		Method GetTarget( ) const
+		Initializer( )
 		{
-			return reinterpret_cast<Method>( GetTarget( ) );
+			MH_STATUS status = MH_Initialize( );
+			if( status != MH_OK )
+				throw std::runtime_error( MH_StatusToString( status ) );
 		}
 
-		void *GetDetour( ) const;
-
-		template<typename Method>
-		Method GetDetour( ) const
+		~Initializer( )
 		{
-			return reinterpret_cast<Method>( GetDetour( ) );
+			MH_STATUS status = MH_Uninitialize( );
+			if( status != MH_OK )
+				std::cerr << "MinHook uninitialization failed: " << MH_StatusToString( status ) << std::endl;
 		}
-
-		void *GetTrampoline( ) const;
-
-		template<typename Method>
-		Method GetTrampoline( ) const
-		{
-			return reinterpret_cast<Method>( GetTrampoline( ) );
-		}
-
-	private:
-		void *target;
-		void *detour;
-		void *trampoline;
 	};
+
+	static Initializer _initializer;
+
+	Hook::Hook( ) :
+		target( nullptr ),
+		detour( nullptr ),
+		trampoline( nullptr )
+	{ }
+
+	Hook::Hook( void *_target, void *_detour ) :
+		target( nullptr ),
+		detour( nullptr ),
+		trampoline( nullptr )
+	{
+		Create( _target, _detour );
+	}
+
+	Hook::~Hook( )
+	{
+		Destroy( );
+	}
+
+	bool Hook::IsValid( ) const
+	{
+		return target != nullptr && detour != nullptr;
+	}
+
+	bool Hook::Create( void *_target, void *_detour )
+	{
+		if( _target == nullptr || _detour == nullptr )
+			return false;
+
+		target = _target;
+		detour = _detour;
+
+		if( MH_CreateHook( _target, _detour, &trampoline ) != MH_OK )
+			return false;
+
+		return MH_EnableHook( _target ) == MH_OK;
+	}
+
+	bool Hook::Destroy( )
+	{
+		if( target == nullptr )
+			return false;
+
+		if( MH_RemoveHook( target ) != MH_OK )
+			return false;
+
+		target = nullptr;
+		detour = nullptr;
+		trampoline = nullptr;
+		return true;
+	}
+
+	bool Hook::Enable( )
+	{
+		return MH_EnableHook( target ) == MH_OK;
+	}
+
+	bool Hook::Disable( )
+	{
+		return MH_DisableHook( target ) == MH_OK;
+	}
+
+	void *Hook::GetTarget( ) const
+	{
+		return target;
+	}
+
+	void *Hook::GetDetour( ) const
+	{
+		return detour;
+	}
+
+	void *Hook::GetTrampoline( ) const
+	{
+		return trampoline;
+	}
 }

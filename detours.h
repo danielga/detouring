@@ -37,37 +37,37 @@
 * @file detours.h
 *
 * @brief Declares the detours class.
-* 
+*
 * Basic usage:
-* 
+*
 * 0) Include hde.c into your project or create a library from it and statically link it.
-* 
+*
 * 1) Define a new type:
-* 
+*
 * typedef int ( *tPrintIntegers )( int, int );
-* 
+*
 * Make sure to specify the correct calling convention. On unixes, this is always cdecl.
 * For WinAPI functions, this is always stdcall.
 * To define a type with a calling convention use:
-* 
+*
 * typedef int ( __cdecl *tPrintIntegers )( int, int );
-* 
-* 
+*
+*
 * 2) Create a global variable for the class instance (only required if you have to call the original function):
-* 
+*
 * MologieDetours::Detour<tPrintIntegers> *detour_PrintIntegers = nullptr;
-* 
-* 
+*
+*
 * 3) Create the detour function. Its type must match the original function's type.
-* 
+*
 * int hook_PrintIntegers( int param1, int param2 )
 * {
 *     return detour_PrintIntegers->GetOriginalFunction( )( param1, param2 );
 * }
-* 
-* 
+*
+*
 * 4) Create the detour in your program's initialization routine:
-* 
+*
 * try
 * {
 *     detour_PrintIntegers = new MologieDetours::Detour<tPrintIntegers>( PrintIntegers, hook_PrintIntegers );
@@ -76,10 +76,10 @@
 * {
 *     // Handle error
 * }
-* 
-* 
+*
+*
 * 5) Remove the detour
-* 
+*
 * delete detour_PrintIntegers;
 *************************************************************************/
 
@@ -89,6 +89,12 @@
 #include <stdexcept>
 #include <cstdint>
 #include "minhook/include/minhook.h"
+
+#ifndef _WIN32
+
+#include <dlfcn.h>
+
+#endif
 
 #define MOLOGIE_DETOURS_MEMORY_UNPROTECT( ADDRESS, SIZE, OLDPROT )
 #define MOLOGIE_DETOURS_MEMORY_REPROTECT( ADDRESS, SIZE, OLDPROT )
@@ -105,6 +111,20 @@
 */
 namespace MologieDetours
 {
+
+#ifdef _WIN32
+
+	extern "C" __declspec( dllimport ) void *__stdcall GetModuleHandleA(
+		const char *lpModuleName
+	);
+
+	extern "C" __declspec( dllimport ) void *__stdcall GetProcAddress(
+		void *hModule,
+		const char *lpProcName
+	);
+
+#endif
+
 	/**
 	* @typedef address_type
 	*
@@ -272,7 +292,9 @@ namespace MologieDetours
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
 		Detour( const char *moduleName, const char *lpProcName, function_type pDetour ) :
-			target( reinterpret_cast<function_type>( GetProcAddress( GetModuleHandleA( moduleName ), lpProcName ) ) ),
+			target( reinterpret_cast<function_type>(
+				GetProcAddress( GetModuleHandleA( moduleName ), lpProcName ) )
+			),
 			detour( pDetour )
 		{
 			CreateDetour( );
@@ -429,7 +451,11 @@ namespace MologieDetours
 		*/
 		void CreateDetour( )
 		{
-			switch( MH_CreateHook( target, detour, reinterpret_cast<void **>( &trampoline ) ) )
+			switch( MH_CreateHook(
+				reinterpret_cast<void *>( target ),
+				reinterpret_cast<void *>( detour ),
+				reinterpret_cast<void **>( &trampoline )
+			) )
 			{
 			case MH_ERROR_NOT_INITIALIZED:
 				throw DetourException( "MinHook library was not initialized" );
@@ -447,10 +473,13 @@ namespace MologieDetours
 				throw DetourException( "Unable to allocate memory for hook" );
 
 			case MH_ERROR_MEMORY_PROTECT:
-				throw DetourPageProtectionException( "Failed to change page protection of original function", target );
+				throw DetourPageProtectionException(
+					"Failed to change page protection of original function",
+					reinterpret_cast<void *>( target )
+				);
 			}
 
-			switch( MH_EnableHook( target ) )
+			switch( MH_EnableHook( reinterpret_cast<void *>( target ) ) )
 			{
 			case MH_ERROR_NOT_INITIALIZED:
 				throw DetourException( "MinHook library was not initialized" );
@@ -462,7 +491,10 @@ namespace MologieDetours
 				throw DetourException( "Hook was already enabled" );
 
 			case MH_ERROR_MEMORY_PROTECT:
-				throw DetourPageProtectionException( "Failed to change page protection of original function", target );
+				throw DetourPageProtectionException(
+					"Failed to change page protection of original function",
+					reinterpret_cast<void *>( target )
+				);
 			}
 		}
 
@@ -479,7 +511,7 @@ namespace MologieDetours
 		*/
 		void Revert( )
 		{
-			switch( MH_RemoveHook( target ) )
+			switch( MH_RemoveHook( reinterpret_cast<void *>( target ) ) )
 			{
 			case MH_ERROR_NOT_INITIALIZED:
 				throw DetourException( "MinHook library was not initialized" );
@@ -488,7 +520,10 @@ namespace MologieDetours
 				throw DetourException( "Hook was not created" );
 
 			case MH_ERROR_MEMORY_PROTECT:
-				throw DetourPageProtectionException( "Failed to change page protection of original function", target );
+				throw DetourPageProtectionException(
+					"Failed to change page protection of original function",
+					reinterpret_cast<void *>( target )
+				);
 			}
 		}
 

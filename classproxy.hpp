@@ -1,6 +1,6 @@
 /*************************************************************************
 * Detouring::ClassProxy
-* A C++ header that allows you to "proxy" virtual tables and receive
+* A C++ class that allows you to "proxy" virtual tables and receive
 * calls in substitute classes. Contains helpers for detouring regular
 * member functions as well.
 *------------------------------------------------------------------------
@@ -44,51 +44,36 @@
 
 #pragma once
 
+#include <cstdint>
 #include <cstddef>
 #include <vector>
 #include <unordered_map>
-#include <stdexcept>
-#include <type_traits>
+#include <utility>
 #include "hook.hpp"
 
-#if defined __linux || defined __APPLE__
+#ifdef _WIN32
 
-#include <sys/mman.h>
-#include <unistd.h>
+#define CLASSPROXY_THISCALL __thiscall
 
-#elif !defined _WIN32
+#else
 
-#error Platform not supported!
+#define CLASSPROXY_THISCALL
 
 #endif
 
 namespace Detouring
 {
-
-#if defined _WIN32
-
-	extern "C" __declspec( dllimport ) int __stdcall VirtualProtect(
-		void *lpAddress,
-		size_t dwSize,
-		unsigned long flNewProtect,
-		unsigned long *lpflOldProtect
-	);
-
-#endif
+	enum class MemberType
+	{
+		Static,
+		NonVirtual,
+		Virtual
+	};
 
 	struct Member
 	{
-		Member( )
-		{
-			address = nullptr;
-			index = static_cast<size_t>( ~0 );
-		}
-
-		Member( size_t idx, void *addr )
-		{
-			address = addr;
-			index = idx;
-		}
+		Member( );
+		Member( size_t idx, void *addr );
 
 		void *address;
 		size_t index;
@@ -126,7 +111,7 @@ namespace Detouring
 		return address;
 	}
 
-	// can be used with interfaces and implementations
+	// Can be used with interfaces and implementations
 	template<typename RetType, typename Class, typename... Args>
 	inline Member GetVirtualAddress(
 		void **vtable,
@@ -180,8 +165,8 @@ namespace Detouring
 
 #else
 
-		// TODO: find better way to find which impl it is using
-		void *address = *reinterpret_cast<void **>( &method );
+		RetType ( Class::** pmethod )( Args... ) = &method;
+		void *address = *reinterpret_cast<void **>( pmethod );
 		size_t offset = ( reinterpret_cast<uintptr_t>( address ) - 1 ) / sizeof( void * );
 		if( offset >= size )
 		{
@@ -197,6 +182,10 @@ namespace Detouring
 #endif
 
 	}
+
+	bool ProtectMemory( void *pMemory, size_t uiLen, bool protect );
+
+	bool IsExecutableAddress( void *pAddress );
 
 	template<typename Target, typename Substitute>
 	class ClassProxy
@@ -236,6 +225,11 @@ namespace Detouring
 				return false;
 
 			target_vtable = GetVirtualTable( instance );
+			if( target_vtable == nullptr || !IsExecutableAddress( *target_vtable ) )
+			{
+				target_vtable = nullptr;
+				return false;
+			}
 
 			for(
 				void **vtable = target_vtable;
@@ -264,6 +258,12 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
+		static bool IsHooked( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ) )
+		{
+			return IsHookedInternal( original );
+		}
+
+		template<typename RetType, typename... Args>
 		static bool IsHooked( RetType ( Target::* original )( Args... ) )
 		{
 			return IsHookedInternal( original );
@@ -275,6 +275,15 @@ namespace Detouring
 			return IsHookedInternal(
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original )
 			);
+		}
+
+		template<typename RetType, typename... Args>
+		static bool Hook(
+			RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ),
+			RetType ( Substitute::* substitute )( Args... )
+		)
+		{
+			return HookInternal( original, substitute );
 		}
 
 		template<typename RetType, typename... Args>
@@ -299,6 +308,12 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
+		static bool UnHook( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ) )
+		{
+			return UnHookInternal( original );
+		}
+
+		template<typename RetType, typename... Args>
 		static bool UnHook( RetType ( Target::* original )( Args... ) )
 		{
 			return UnHookInternal( original );
@@ -315,11 +330,21 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static RetType Call(
 			Target *instance,
+			RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ),
+			Args... args
+		)
+		{
+			return CallInternal<RetType, Args...>( instance, original, std::forward<Args>( args )... );
+		}
+
+		template<typename RetType, typename... Args>
+		static RetType Call(
+			Target *instance,
 			RetType ( Target::* original )( Args... ),
 			Args... args
 		)
 		{
-			return CallInternal( instance, original, args... );
+			return CallInternal<RetType, Args...>( instance, original, std::forward<Args>( args )... );
 		}
 
 		template<typename RetType, typename... Args>
@@ -329,35 +354,51 @@ namespace Detouring
 			Args... args
 		)
 		{
-			return CallInternal(
+			return CallInternal<RetType, Args...>(
 				instance,
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
-				args...
+				std::forward<Args>( args )...
+			);
+		}
+
+		template<typename RetType, typename... Args>
+		inline RetType Call( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ), Args... args )
+		{
+			return Call<RetType, Args...>(
+				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
 		}
 
 		template<typename RetType, typename... Args>
 		inline RetType Call( RetType ( Target::* original )( Args... ), Args... args )
 		{
-			return Call( reinterpret_cast<Target *>( this ), original, args... );
+			return Call<RetType, Args...>(
+				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
+			);
 		}
 
 		template<typename RetType, typename... Args>
 		inline RetType Call( RetType ( Target::* original )( Args... ) const, Args... args )
 		{
-			return Call( reinterpret_cast<Target *>( this ), original, args... );
+			return Call<RetType, Args...>(
+				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
+			);
 		}
 
 		template<typename RetType, typename... Args>
 		static Member GetTargetVirtualAddress( RetType ( Target::* method )( Args... ) )
 		{
-			return GetVirtualAddressInternal( target_cache, target_vtable, target_size, method );
+			return GetVirtualAddressInternal(
+				target_cache, target_vtable, target_size, method
+			);
 		}
 
 		template<typename RetType, typename... Args>
 		static Member GetTargetVirtualAddress( RetType ( Target::* method )( Args... ) const )
 		{
-			return GetVirtualAddressInternal( target_cache, target_vtable, target_size, method );
+			return GetVirtualAddressInternal(
+				target_cache, target_vtable, target_size, method
+			);
 		}
 
 		template<typename RetType, typename... Args>
@@ -405,27 +446,10 @@ namespace Detouring
 			return address;
 		}
 
-		static bool ProtectMemory( void *pMemory, size_t uiLen, bool protect )
+		template<typename RetType, typename... Args>
+		static bool IsHookedInternal( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ) )
 		{
-
-#if defined _WIN32
-
-			static unsigned long before = 0;
-			// PAGE_EXECUTE_READWRITE == 0x40
-			return VirtualProtect( pMemory, uiLen, protect ? before : 0x40, &before ) == 1;
-
-#else
-
-			uintptr_t uiMemory = reinterpret_cast<uintptr_t>( pMemory ),
-				diff = uiMemory % static_cast<uintptr_t>( sysconf( _SC_PAGESIZE ) );
-			return mprotect(
-				reinterpret_cast<void *>( uiMemory - diff ),
-				diff + uiLen,
-				( protect ? 0 : PROT_WRITE ) | PROT_READ | PROT_EXEC
-			) == 0;
-
-#endif
-
+			return hooks.find( original ) != hooks.end( );
 		}
 
 		template<typename RetType, typename... Args>
@@ -440,6 +464,31 @@ namespace Detouring
 				return false;
 
 			return target_vtable[vtarget.index] != original_vtable[vtarget.index];
+		}
+
+		template<typename RetType, typename... Args>
+		static bool HookInternal(
+			RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ),
+			RetType ( Substitute::* substitute )( Args... )
+		)
+		{
+			void *address = original;
+			if( address == nullptr )
+				return false;
+
+			auto it = hooks.find( address );
+			if( it != hooks.end( ) )
+				return false;
+
+			void *subst = GetAddress( substitute );
+			if( subst == nullptr )
+				return false;
+
+			Detouring::Hook &hook = hooks[address];
+			if( !hook.Create( address, subst ) )
+				return false;
+
+			return hook.Enable( );
 		}
 
 		template<typename RetType, typename... Args>
@@ -465,12 +514,12 @@ namespace Detouring
 				return true;
 			}
 
-			auto it = hooks.find( GetAddress( original ) );
-			if( it != hooks.end( ) )
-				return false;
-
 			void *address = GetAddress( original );
 			if( address == nullptr )
+				return false;
+
+			auto it = hooks.find( address );
+			if( it != hooks.end( ) )
 				return false;
 
 			void *subst = GetAddress( substitute );
@@ -482,6 +531,19 @@ namespace Detouring
 				return false;
 
 			return hook.Enable( );
+		}
+
+		template<typename RetType, typename... Args>
+		static bool UnHookInternal( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ) )
+		{
+			auto it = hooks.find( original );
+			if( it != hooks.end( ) )
+			{
+				hooks.erase( it );
+				return true;
+			}
+
+			return false;
 		}
 
 		template<typename RetType, typename... Args>
@@ -512,6 +574,37 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static RetType CallInternal(
 			Target *instance,
+			RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ),
+			Args... args
+		)
+		{
+			Member target;
+			void *address = original;
+			auto it = hooks.find( address );
+			if( it != hooks.end( ) )
+			{
+				target.address = ( *it ).second.GetTrampoline( );
+				if( target.address != nullptr )
+					target.index = 0;
+			}
+
+			if( target.index >= target_size )
+			{
+				target.address = address;
+				if( target.address != nullptr )
+					target.index = 0;
+			}
+
+			if( target.index >= target_size )
+				return RetType( );
+
+			auto method = reinterpret_cast<RetType ( * )( Target *, Args... )>( target.address );
+			return method( instance, std::forward<Args>( args )... );
+		}
+
+		template<typename RetType, typename... Args>
+		static RetType CallInternal(
+			Target *instance,
 			RetType ( Target::* original )( Args... ),
 			Args... args
 		)
@@ -522,13 +615,15 @@ namespace Detouring
 			if( it != hooks.end( ) )
 			{
 				target.address = ( *it ).second.GetTrampoline( );
-				target.index = 0;
+				if( target.address != nullptr )
+					target.index = 0;
 			}
 
 			if( target.index >= target_size )
 			{
 				target = GetTargetVirtualAddress( original );
-				target.address = original_vtable[target.index];
+				if( target.index < target_size )
+					target.address = original_vtable[target.index];
 			}
 
 			if( target.index >= target_size )
@@ -542,7 +637,7 @@ namespace Detouring
 				return RetType( );
 
 			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &target );
-			return ( instance->**typedfunc )( args... );
+			return ( instance->**typedfunc )( std::forward<Args>( args )... );
 		}
 
 		static size_t target_size;
