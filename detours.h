@@ -457,6 +457,9 @@ namespace MologieDetours
 				reinterpret_cast<void **>( &trampoline )
 			) )
 			{
+			case MH_OK:
+				break;
+
 			case MH_ERROR_NOT_INITIALIZED:
 				throw DetourException( "MinHook library was not initialized" );
 
@@ -477,10 +480,16 @@ namespace MologieDetours
 					"Failed to change page protection of original function",
 					reinterpret_cast<void *>( target )
 				);
+
+			default:
+				throw DetourException( "Unknown error returned by MH_CreateHook" );
 			}
 
 			switch( MH_EnableHook( reinterpret_cast<void *>( target ) ) )
 			{
+			case MH_OK:
+				break;
+
 			case MH_ERROR_NOT_INITIALIZED:
 				throw DetourException( "MinHook library was not initialized" );
 
@@ -495,6 +504,9 @@ namespace MologieDetours
 					"Failed to change page protection of original function",
 					reinterpret_cast<void *>( target )
 				);
+
+			default:
+				throw DetourException( "Unknown error returned by MH_EnableHook" );
 			}
 		}
 
@@ -513,6 +525,9 @@ namespace MologieDetours
 		{
 			switch( MH_RemoveHook( reinterpret_cast<void *>( target ) ) )
 			{
+			case MH_OK:
+				break;
+
 			case MH_ERROR_NOT_INITIALIZED:
 				throw DetourException( "MinHook library was not initialized" );
 
@@ -524,6 +539,9 @@ namespace MologieDetours
 					"Failed to change page protection of original function",
 					reinterpret_cast<void *>( target )
 				);
+
+			default:
+				throw DetourException( "Unknown error returned by MH_RemoveHook" );
 			}
 		}
 
