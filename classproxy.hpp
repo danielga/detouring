@@ -35,13 +35,6 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************/
 
-/*************************************************************************
-* Implementation of the Detouring::GetVirtualAddress function heavily
-* based on meepdarknessmeep's vhook.h header at
-* https://github.com/glua/gm_fshook/blob/master/src/vhook.h
-* Thanks a lot, xoxo.
-*************************************************************************/
-
 #pragma once
 
 #include <cstdint>
@@ -50,142 +43,30 @@
 #include <unordered_map>
 #include <utility>
 #include "hook.hpp"
+#include "helpers.hpp"
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 
-#define CLASSPROXY_THISCALL __thiscall
+#if defined _WIN64
+
+#define CLASSPROXY_CALLING_CONVENTION __fastcall
 
 #else
 
-#define CLASSPROXY_THISCALL
+#define CLASSPROXY_CALLING_CONVENTION __thiscall
+
+#endif
+
+#else
+
+#define CLASSPROXY_CALLING_CONVENTION
 
 #endif
 
 namespace Detouring
 {
-	enum class MemberType
-	{
-		Static,
-		NonVirtual,
-		Virtual
-	};
-
-	struct Member
-	{
-		Member( );
-		Member( size_t idx, void *addr );
-
-		void *address;
-		size_t index;
-	};
-
 	typedef std::unordered_map<void *, Member> CacheMap;
 	typedef std::unordered_map<void *, Detouring::Hook> HookMap;
-
-	template<typename Class>
-	inline void **GetVirtualTable( Class *instance )
-	{
-		return *reinterpret_cast<void ***>( instance );
-	}
-
-	template<typename RetType, typename Class, typename... Args>
-	inline void *GetAddress( RetType ( Class::* method )( Args... ) )
-	{
-		RetType ( Class::** pmethod )( Args... ) = &method;
-
-#ifdef _MSC_VER
-
-		void *address = *reinterpret_cast<void **>( pmethod );
-
-#else
-
-		void *address = reinterpret_cast<void *>( pmethod );
-
-#endif
-
-		// Check whether the function starts with a relative far jump and assume a debug compilation thunk
-		uint8_t *method_code = reinterpret_cast<uint8_t *>( address );
-		if( method_code[0] == 0xE9 )
-			address = method_code + 5 + *reinterpret_cast<int32_t *>( method_code + 1 );
-
-		return address;
-	}
-
-	// Can be used with interfaces and implementations
-	template<typename RetType, typename Class, typename... Args>
-	inline Member GetVirtualAddress(
-		void **vtable,
-		size_t size,
-		RetType ( Class::* method )( Args... )
-	)
-	{
-		if( vtable == nullptr || size == 0 || method == nullptr )
-			return Member( );
-
-#ifdef _MSC_VER
-
-		void *member = GetAddress( method );
-		uint8_t *addr = reinterpret_cast<uint8_t *>( member );
-
-#ifdef _WIN64
-
-		// x86-64, mov rax, [rcx]
-		if( addr[0] == 0x48 )
-			addr += 3;
-
-#else
-
-		if( addr[0] == 0x8B )
-			addr += 2;
-
-#endif
-
-		// check for jmp functions
-		if( addr[0] == 0xFF && ( ( addr[1] >> 4 ) & 3 ) == 2 )
-		{
-			uint8_t jumptype = addr[1] >> 6;
-			uint32_t offset = 0;
-			if( jumptype == 1 ) // byte
-				offset = addr[2];
-			else if( jumptype == 2 )
-				offset = *reinterpret_cast<uint32_t *>( &addr[2] );
-
-			size_t index = offset / sizeof( void * );
-			if( index >= size )
-				return Member( );
-
-			return Member( index, vtable[index] );
-		}
-
-		for( size_t index = 0; index < size; ++index )
-			if( vtable[index] == member )
-				return Member( index, member );
-
-		return Member( );
-
-#else
-
-		RetType ( Class::** pmethod )( Args... ) = &method;
-		void *address = *reinterpret_cast<void **>( pmethod );
-		size_t offset = ( reinterpret_cast<uintptr_t>( address ) - 1 ) / sizeof( void * );
-		if( offset >= size )
-		{
-			for( size_t index = 0; index < size; ++index )
-				if( vtable[index] == address )
-					return Member( index, address );
-
-			return Member( );
-		}
-
-		return Member( offset, vtable[offset] );
-
-#endif
-
-	}
-
-	bool ProtectMemory( void *pMemory, size_t uiLen, bool protect );
-
-	bool IsExecutableAddress( void *pAddress );
 
 	template<typename Target, typename Substitute>
 	class ClassProxy
@@ -258,7 +139,9 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static bool IsHooked( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ) )
+		static bool IsHooked(
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... )
+		)
 		{
 			return IsHookedInternal( original );
 		}
@@ -279,7 +162,7 @@ namespace Detouring
 
 		template<typename RetType, typename... Args>
 		static bool Hook(
-			RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ),
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
 			RetType ( Substitute::* substitute )( Args... )
 		)
 		{
@@ -308,7 +191,9 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static bool UnHook( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ) )
+		static bool UnHook(
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... )
+		)
 		{
 			return UnHookInternal( original );
 		}
@@ -330,7 +215,7 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static RetType Call(
 			Target *instance,
-			RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ),
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
 			Args... args
 		)
 		{
@@ -362,7 +247,10 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		inline RetType Call( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ), Args... args )
+		inline RetType Call(
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
+			Args... args
+		)
 		{
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
@@ -447,7 +335,9 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static bool IsHookedInternal( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ) )
+		static bool IsHookedInternal(
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... )
+		)
 		{
 			return hooks.find( original ) != hooks.end( );
 		}
@@ -468,7 +358,7 @@ namespace Detouring
 
 		template<typename RetType, typename... Args>
 		static bool HookInternal(
-			RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ),
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
 			RetType ( Substitute::* substitute )( Args... )
 		)
 		{
@@ -534,7 +424,7 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static bool UnHookInternal( RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ) )
+		static bool UnHookInternal( RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ) )
 		{
 			auto it = hooks.find( original );
 			if( it != hooks.end( ) )
@@ -574,7 +464,7 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static RetType CallInternal(
 			Target *instance,
-			RetType ( CLASSPROXY_THISCALL *original )( Target *, Args... ),
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
 			Args... args
 		)
 		{
