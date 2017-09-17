@@ -42,10 +42,18 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
-#include <type_traits>
 #include "hook.hpp"
+
+#if !defined __APPLE__ || MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+
+#include <cstdint>
+
+#else
+
+#include <stdint.h>
+
+#endif
 
 namespace Detouring
 {

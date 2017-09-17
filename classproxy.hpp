@@ -37,13 +37,25 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
 #include <vector>
-#include <unordered_map>
-#include <utility>
 #include "hook.hpp"
 #include "helpers.hpp"
+
+#if !defined __APPLE__ || MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+
+#include <cstdint>
+#include <unordered_map>
+#include <utility>
+
+#else
+
+#include <stdint.h>
+#include <map>
+
+#define MAC_OS_X_BAD_SDK 1
+
+#endif
 
 #ifdef _MSC_VER
 
@@ -65,8 +77,18 @@
 
 namespace Detouring
 {
+
+#ifndef MAC_OS_X_BAD_SDK
+
 	typedef std::unordered_map<void *, Member> CacheMap;
 	typedef std::unordered_map<void *, Detouring::Hook> HookMap;
+
+#else
+
+	typedef std::map<void *, Member> CacheMap;
+	typedef std::map<void *, Detouring::Hook> HookMap;
+
+#endif
 
 	template<typename Target, typename Substitute>
 	class ClassProxy
@@ -219,7 +241,17 @@ namespace Detouring
 			Args... args
 		)
 		{
+			
+#ifndef MAC_OS_X_BAD_SDK
+
 			return CallInternal<RetType, Args...>( instance, original, std::forward<Args>( args )... );
+
+#else
+
+			return CallInternal<RetType, Args...>( instance, original, args ... );
+
+#endif
+
 		}
 
 		template<typename RetType, typename... Args>
@@ -229,7 +261,17 @@ namespace Detouring
 			Args... args
 		)
 		{
+
+#ifndef MAC_OS_X_BAD_SDK
+
 			return CallInternal<RetType, Args...>( instance, original, std::forward<Args>( args )... );
+
+#else
+
+			return CallInternal<RetType, Args...>( instance, original, args ... );
+
+#endif
+
 		}
 
 		template<typename RetType, typename... Args>
@@ -239,11 +281,25 @@ namespace Detouring
 			Args... args
 		)
 		{
+
+#ifndef MAC_OS_X_BAD_SDK
+
 			return CallInternal<RetType, Args...>(
 				instance,
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
 				std::forward<Args>( args )...
 			);
+
+#else
+
+			return CallInternal<RetType, Args...>(
+				instance,
+				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
+				args...
+			);
+
+#endif
+
 		}
 
 		template<typename RetType, typename... Args>
@@ -252,25 +308,61 @@ namespace Detouring
 			Args... args
 		)
 		{
+
+#ifndef MAC_OS_X_BAD_SDK
+
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
+
+#else
+
+			return Call<RetType, Args...>(
+				reinterpret_cast<Target *>( this ), original, args...
+			);
+
+#endif
+
 		}
 
 		template<typename RetType, typename... Args>
 		inline RetType Call( RetType ( Target::* original )( Args... ), Args... args )
 		{
+
+#ifndef MAC_OS_X_BAD_SDK
+
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
+
+#else
+
+			return Call<RetType, Args...>(
+				reinterpret_cast<Target *>( this ), original, args...
+			);
+
+#endif
+
 		}
 
 		template<typename RetType, typename... Args>
 		inline RetType Call( RetType ( Target::* original )( Args... ) const, Args... args )
 		{
+
+#ifndef MAC_OS_X_BAD_SDK
+
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
+
+#else
+
+			return Call<RetType, Args...>(
+				reinterpret_cast<Target *>( this ), original, args...
+			);
+
+#endif
+
 		}
 
 		template<typename RetType, typename... Args>
@@ -489,7 +581,17 @@ namespace Detouring
 				return RetType( );
 
 			auto method = reinterpret_cast<RetType ( * )( Target *, Args... )>( target.address );
+
+#ifndef MAC_OS_X_BAD_SDK
+
 			return method( instance, std::forward<Args>( args )... );
+
+#else
+
+			return method( instance, args... );
+
+#endif
+
 		}
 
 		template<typename RetType, typename... Args>
@@ -527,7 +629,17 @@ namespace Detouring
 				return RetType( );
 
 			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &target );
+
+#ifndef MAC_OS_X_BAD_SDK
+
 			return ( instance->**typedfunc )( std::forward<Args>( args )... );
+
+#else
+
+			return ( instance->**typedfunc )( args... );
+
+#endif
+
 		}
 
 		static size_t target_size;
