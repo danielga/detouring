@@ -43,7 +43,7 @@
 #include "hook.hpp"
 #include "helpers.hpp"
 
-#if !defined __APPLE__ || defined __clang__
+#if !defined __APPLE__ || MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
 
 #include <unordered_map>
 #include <utility>
