@@ -142,7 +142,7 @@ namespace Detouring
 
 #endif
 
-		memory_object_name_t object = nullptr;
+		memory_object_name_t object = 0;
 
 		kern_return_t status = mach_vm_region(
 			mach_task_self( ),
