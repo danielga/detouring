@@ -85,19 +85,10 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <string>
 #include <stdexcept>
 #include "minhook/include/minhook.h"
-
-#if !defined __APPLE__ || MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
-
-#include <cstdint>
-
-#else
-
-#include <stdint.h>
-
-#endif
 
 #ifndef _WIN32
 

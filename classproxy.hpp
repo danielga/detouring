@@ -37,23 +37,22 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <cstddef>
 #include <vector>
 #include "hook.hpp"
 #include "helpers.hpp"
 
-#if !defined __APPLE__ || MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+#if !defined __APPLE__ || defined __clang__
 
-#include <cstdint>
 #include <unordered_map>
 #include <utility>
 
 #else
 
-#include <stdint.h>
 #include <map>
 
-#define MAC_OS_X_BAD_SDK 1
+#define MAC_OS_X_BAD_SDK
 
 #endif
 

@@ -49,7 +49,7 @@ void main( )
 }
 */
 
-#include <cstdint>
+#include <stdint.h>
 #include "helpers.hpp"
 
 #define VTBL( classptr ) ( *(uintptr_t *)classptr )
