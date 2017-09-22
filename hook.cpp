@@ -89,13 +89,14 @@ namespace Detouring
 		if( _target == nullptr || _detour == nullptr )
 			return false;
 
-		target = _target;
-		detour = _detour;
+		if( MH_CreateHook( _target, _detour, &trampoline ) == MH_OK )
+		{
+			target = _target;
+			detour = _detour;
+			return true;
+		}
 
-		if( MH_CreateHook( _target, _detour, &trampoline ) != MH_OK )
-			return false;
-
-		return MH_EnableHook( _target ) == MH_OK;
+		return false;
 	}
 
 	bool Hook::Destroy( )
