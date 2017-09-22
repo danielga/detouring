@@ -74,6 +74,8 @@ namespace Detouring
 		Member( );
 		Member( size_t idx, void *addr, Type type );
 
+		bool IsValid( ) const;
+
 		void *address;
 		size_t index;
 		Type type;

@@ -94,6 +94,11 @@ namespace Detouring
 		type = t;
 	}
 
+	bool Member::IsValid( ) const
+	{
+		return type != Type::Unknown;
+	}
+
 	int32_t GetMemoryProtection( void *address )
 	{
 		if( address == nullptr )

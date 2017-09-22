@@ -43,7 +43,7 @@
 #include "hook.hpp"
 #include "helpers.hpp"
 
-#if !defined __APPLE__ || MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if !defined __GNUC__ || ( __GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__ ) >= 40300
 
 #include <unordered_map>
 #include <utility>
@@ -52,7 +52,7 @@
 
 #include <map>
 
-#define MAC_OS_X_BAD_SDK
+#define BAD_GCC_VERSION
 
 #endif
 
@@ -68,16 +68,12 @@
 
 #endif
 
-#else
-
-#define CLASSPROXY_CALLING_CONVENTION
-
 #endif
 
 namespace Detouring
 {
 
-#ifndef MAC_OS_X_BAD_SDK
+#ifndef BAD_GCC_VERSION
 
 	typedef std::unordered_map<void *, Member> CacheMap;
 	typedef std::unordered_map<void *, Detouring::Hook> HookMap;
@@ -160,78 +156,145 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
+		static bool IsHooked( RetType ( *original )( Target *, Args... ) )
+		{
+			return IsHookedFunction( original );
+		}
+
+#ifdef _MSC_VER
+
+		template<typename RetType, typename... Args>
 		static bool IsHooked(
 			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... )
 		)
 		{
-			return IsHookedInternal( original );
+			return IsHookedFunction(
+				reinterpret_cast<RetType ( * )( Target *, Args... )>( original )
+			);
+		}
+
+#endif
+
+		template<typename RetType, typename... Args>
+		static bool IsHooked( RetType ( Target::*original )( Args... ) )
+		{
+			return IsHookedMember( original );
 		}
 
 		template<typename RetType, typename... Args>
-		static bool IsHooked( RetType ( Target::* original )( Args... ) )
+		static bool IsHooked( RetType ( Target::*original )( Args... ) const )
 		{
-			return IsHookedInternal( original );
-		}
-
-		template<typename RetType, typename... Args>
-		static bool IsHooked( RetType ( Target::* original )( Args... ) const )
-		{
-			return IsHookedInternal(
+			return IsHookedMember(
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original )
 			);
 		}
 
 		template<typename RetType, typename... Args>
 		static bool Hook(
+			RetType ( *original )( Target *, Args... ),
+			RetType ( Substitute::*substitute )( Args... )
+		)
+		{
+			return HookFunction( original, substitute );
+		}
+
+#ifdef _MSC_VER
+
+		template<typename RetType, typename... Args>
+		static bool Hook(
 			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
-			RetType ( Substitute::* substitute )( Args... )
+			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
-			return HookInternal( original, substitute );
+			return HookFunction(
+				reinterpret_cast<RetType ( * )( Target *, Args... )>( original ),
+				substitute
+			);
+		}
+
+#endif
+
+		template<typename RetType, typename... Args>
+		static bool Hook(
+			RetType ( Target::*original )( Args... ),
+			RetType ( Substitute::*substitute )( Args... )
+		)
+		{
+			return HookMember( original, substitute );
 		}
 
 		template<typename RetType, typename... Args>
 		static bool Hook(
-			RetType ( Target::* original )( Args... ),
-			RetType ( Substitute::* substitute )( Args... )
+			RetType ( Target::*original )( Args... ) const,
+			RetType ( Substitute::*substitute )( Args... ) const
 		)
 		{
-			return HookInternal( original, substitute );
-		}
-
-		template<typename RetType, typename... Args>
-		static bool Hook(
-			RetType ( Target::* original )( Args... ) const,
-			RetType ( Substitute::* substitute )( Args... ) const
-		)
-		{
-			return HookInternal(
+			return HookMember(
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
 				reinterpret_cast<RetType ( Target::* )( Args... )>( substitute )
 			);
 		}
 
 		template<typename RetType, typename... Args>
+		static bool UnHook( RetType ( *original )( Target *, Args... ) )
+		{
+			return UnHookFunction( original );
+		}
+
+#ifdef _MSC_VER
+
+		template<typename RetType, typename... Args>
 		static bool UnHook(
 			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... )
 		)
 		{
-			return UnHookInternal( original );
+			return UnHookFunction(
+				reinterpret_cast<RetType ( * )( Target *, Args... )>( original )
+			);
+		}
+
+#endif
+
+		template<typename RetType, typename... Args>
+		static bool UnHook( RetType ( Target::*original )( Args... ) )
+		{
+			return UnHookMember( original );
 		}
 
 		template<typename RetType, typename... Args>
-		static bool UnHook( RetType ( Target::* original )( Args... ) )
+		static bool UnHook( RetType ( Target::*original )( Args... ) const )
 		{
-			return UnHookInternal( original );
-		}
-
-		template<typename RetType, typename... Args>
-		static bool UnHook( RetType ( Target::* original )( Args... ) const )
-		{
-			return UnHookInternal(
+			return UnHookMember(
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original )
 			);
 		}
+
+		template<typename RetType, typename... Args>
+		static RetType Call(
+			Target *instance,
+			RetType ( *original )( Target *, Args... ),
+			Args... args
+		)
+		{
+			void *target = CallFunctionTarget( original );
+			if( target == nullptr )
+				return RetType( );
+
+			auto method = reinterpret_cast<RetType ( * )( Target *, Args... )>( target );
+
+#ifndef BAD_GCC_VERSION
+
+			return method( instance, std::forward<Args>( args )... );
+
+#else
+
+			return method( instance, args... );
+
+#endif
+
+		}
+
+#ifdef _MSC_VER
 
 		template<typename RetType, typename... Args>
 		static RetType Call(
@@ -240,14 +303,36 @@ namespace Detouring
 			Args... args
 		)
 		{
-			
-#ifndef MAC_OS_X_BAD_SDK
+			void *target = CallFunctionTarget(
+				reinterpret_cast<RetType ( * )( Target *, Args... )>( original )
+			);
+			if( target == nullptr )
+				return RetType( );
 
-			return CallInternal<RetType, Args...>( instance, original, std::forward<Args>( args )... );
+			auto method =
+				reinterpret_cast<RetType ( CLASSPROXY_CALLING_CONVENTION * )( Target *, Args... )>(
+					target
+				);
+			return method( instance, std::forward<Args>( args )... );
+		}
+
+#endif
+
+		template<typename RetType, typename... Args>
+		static RetType Call(
+			Target *instance,
+			RetType ( Target::*original )( Args... ),
+			Args... args
+		)
+		{
+
+#ifndef BAD_GCC_VERSION
+
+			return CallMember<RetType, Args...>( instance, original, std::forward<Args>( args )... );
 
 #else
 
-			return CallInternal<RetType, Args...>( instance, original, args ... );
+			return CallMember<RetType, Args...>( instance, original, args ... );
 
 #endif
 
@@ -256,34 +341,14 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static RetType Call(
 			Target *instance,
-			RetType ( Target::* original )( Args... ),
+			RetType ( Target::*original )( Args... ) const,
 			Args... args
 		)
 		{
 
-#ifndef MAC_OS_X_BAD_SDK
+#ifndef BAD_GCC_VERSION
 
-			return CallInternal<RetType, Args...>( instance, original, std::forward<Args>( args )... );
-
-#else
-
-			return CallInternal<RetType, Args...>( instance, original, args ... );
-
-#endif
-
-		}
-
-		template<typename RetType, typename... Args>
-		static RetType Call(
-			Target *instance,
-			RetType ( Target::* original )( Args... ) const,
-			Args... args
-		)
-		{
-
-#ifndef MAC_OS_X_BAD_SDK
-
-			return CallInternal<RetType, Args...>(
+			return CallMember<RetType, Args...>(
 				instance,
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
 				std::forward<Args>( args )...
@@ -291,7 +356,7 @@ namespace Detouring
 
 #else
 
-			return CallInternal<RetType, Args...>(
+			return CallMember<RetType, Args...>(
 				instance,
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
 				args...
@@ -302,33 +367,45 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
+		inline RetType Call( RetType ( *original )( Target *, Args... ), Args... args )
+		{
+
+#ifndef BAD_GCC_VERSION
+
+			return Call<RetType, Args...>(
+				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
+				);
+
+#else
+
+			return Call<RetType, Args...>(
+				reinterpret_cast<Target *>( this ), original, args...
+				);
+
+#endif
+
+		}
+
+#ifdef _MSC_VER
+
+		template<typename RetType, typename... Args>
 		inline RetType Call(
 			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
 			Args... args
 		)
 		{
-
-#ifndef MAC_OS_X_BAD_SDK
-
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
-
-#else
-
-			return Call<RetType, Args...>(
-				reinterpret_cast<Target *>( this ), original, args...
-			);
+		}
 
 #endif
 
-		}
-
 		template<typename RetType, typename... Args>
-		inline RetType Call( RetType ( Target::* original )( Args... ), Args... args )
+		inline RetType Call( RetType ( Target::*original )( Args... ), Args... args )
 		{
 
-#ifndef MAC_OS_X_BAD_SDK
+#ifndef BAD_GCC_VERSION
 
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
@@ -345,10 +422,10 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		inline RetType Call( RetType ( Target::* original )( Args... ) const, Args... args )
+		inline RetType Call( RetType ( Target::*original )( Args... ) const, Args... args )
 		{
 
-#ifndef MAC_OS_X_BAD_SDK
+#ifndef BAD_GCC_VERSION
 
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
@@ -365,7 +442,7 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static Member GetTargetVirtualAddress( RetType ( Target::* method )( Args... ) )
+		static Member GetTargetVirtualAddress( RetType ( Target::*method )( Args... ) )
 		{
 			return GetVirtualAddressInternal(
 				target_cache, target_vtable, target_size, method
@@ -373,7 +450,7 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static Member GetTargetVirtualAddress( RetType ( Target::* method )( Args... ) const )
+		static Member GetTargetVirtualAddress( RetType ( Target::*method )( Args... ) const )
 		{
 			return GetVirtualAddressInternal(
 				target_cache, target_vtable, target_size, method
@@ -381,7 +458,7 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static Member GetSubstituteVirtualAddress( RetType ( Substitute::* method )( Args... ) )
+		static Member GetSubstituteVirtualAddress( RetType ( Substitute::*method )( Args... ) )
 		{
 			return GetVirtualAddressInternal(
 				substitute_cache,
@@ -392,7 +469,7 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static Member GetSubstituteVirtualAddress( RetType ( Substitute::* method )( Args... ) const )
+		static Member GetSubstituteVirtualAddress( RetType ( Substitute::*method )( Args... ) const )
 		{
 			return GetVirtualAddressInternal(
 				substitute_cache,
@@ -403,54 +480,30 @@ namespace Detouring
 		}
 
 	private:
-		// can be used with interfaces and implementations
-		template<typename RetType, typename Class, typename... Args>
-		static Member GetVirtualAddressInternal(
-			CacheMap &cache,
-			void **vtable,
-			size_t size,
-			RetType ( Class::* method )( Args... )
-		)
-		{
-			void *member = GetAddress( method );
-			auto it = cache.find( member );
-			if( it != cache.end( ) )
-				return ( *it ).second;
-
-			Member address = GetVirtualAddress( vtable, size, method );
-
-			if( address.index < size )
-				cache[member] = address;
-
-			return address;
-		}
-
 		template<typename RetType, typename... Args>
-		static bool IsHookedInternal(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... )
-		)
+		static bool IsHookedFunction( RetType ( *original )( Target *, Args... ) )
 		{
 			return hooks.find( original ) != hooks.end( );
 		}
 
 		template<typename RetType, typename... Args>
-		static bool IsHookedInternal( RetType ( Target::* original )( Args... ) )
+		static bool IsHookedMember( RetType ( Target::*original )( Args... ) )
 		{
 			auto it = hooks.find( GetAddress( original ) );
 			if( it != hooks.end( ) )
 				return true;
 
 			Member vtarget = GetTargetVirtualAddress( original );
-			if( vtarget.index >= target_size )
+			if( !vtarget.IsValid( ) )
 				return false;
 
 			return target_vtable[vtarget.index] != original_vtable[vtarget.index];
 		}
 
 		template<typename RetType, typename... Args>
-		static bool HookInternal(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
-			RetType ( Substitute::* substitute )( Args... )
+		static bool HookFunction(
+			RetType ( *original )( Target *, Args... ),
+			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
 			void *address = original;
@@ -459,7 +512,7 @@ namespace Detouring
 
 			auto it = hooks.find( address );
 			if( it != hooks.end( ) )
-				return false;
+				return true;
 
 			void *subst = GetAddress( substitute );
 			if( subst == nullptr )
@@ -467,25 +520,28 @@ namespace Detouring
 
 			Detouring::Hook &hook = hooks[address];
 			if( !hook.Create( address, subst ) )
+			{
+				hooks.erase( address );
 				return false;
+			}
 
 			return hook.Enable( );
 		}
 
 		template<typename RetType, typename... Args>
-		static bool HookInternal(
-			RetType ( Target::* original )( Args... ),
-			RetType ( Substitute::* substitute )( Args... )
+		static bool HookMember(
+			RetType ( Target::*original )( Args... ),
+			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
 			Member target = GetTargetVirtualAddress( original );
-			if( target.index < target_size )
+			if( target.IsValid( ) )
 			{
 				if( target_vtable[target.index] != original_vtable[target.index] )
-					return false;
+					return true;
 
 				Member subst = GetSubstituteVirtualAddress( substitute );
-				if( subst.index >= substitute_size )
+				if( !subst.IsValid( ) )
 					return false;
 
 				ProtectMemory( target_vtable + target.index, sizeof( void * ), false );
@@ -501,7 +557,7 @@ namespace Detouring
 
 			auto it = hooks.find( address );
 			if( it != hooks.end( ) )
-				return false;
+				return true;
 
 			void *subst = GetAddress( substitute );
 			if( subst == nullptr )
@@ -509,13 +565,16 @@ namespace Detouring
 
 			Detouring::Hook &hook = hooks[address];
 			if( !hook.Create( address, subst ) )
+			{
+				hooks.erase( address );
 				return false;
+			}
 
 			return hook.Enable( );
 		}
 
 		template<typename RetType, typename... Args>
-		static bool UnHookInternal( RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ) )
+		static bool UnHookFunction( RetType ( *original )( Target *, Args... ) )
 		{
 			auto it = hooks.find( original );
 			if( it != hooks.end( ) )
@@ -528,7 +587,7 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static bool UnHookInternal( RetType ( Target::* original )( Args... ) )
+		static bool UnHookMember( RetType ( Target::*original )( Args... ) )
 		{
 			auto it = hooks.find( GetAddress( original ) );
 			if( it != hooks.end( ) )
@@ -538,7 +597,7 @@ namespace Detouring
 			}
 
 			Member target = GetTargetVirtualAddress( original );
-			if( target.index >= target_size )
+			if( !target.IsValid( ) )
 				return false;
 
 			void *vfunction = original_vtable[target.index];
@@ -553,50 +612,24 @@ namespace Detouring
 		}
 
 		template<typename RetType, typename... Args>
-		static RetType CallInternal(
-			Target *instance,
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
-			Args... args
-		)
+		static void *CallFunctionTarget( RetType ( *original )( Target *, Args... ) )
 		{
-			Member target;
-			void *address = original;
+			void *address = original, *target = nullptr;
+
 			auto it = hooks.find( address );
 			if( it != hooks.end( ) )
-			{
-				target.address = ( *it ).second.GetTrampoline( );
-				if( target.address != nullptr )
-					target.index = 0;
-			}
+				target = ( *it ).second.GetTrampoline( );
 
-			if( target.index >= target_size )
-			{
-				target.address = address;
-				if( target.address != nullptr )
-					target.index = 0;
-			}
+			if( target == nullptr )
+				target = address;
 
-			if( target.index >= target_size )
-				return RetType( );
-
-			auto method = reinterpret_cast<RetType ( * )( Target *, Args... )>( target.address );
-
-#ifndef MAC_OS_X_BAD_SDK
-
-			return method( instance, std::forward<Args>( args )... );
-
-#else
-
-			return method( instance, args... );
-
-#endif
-
+			return target;
 		}
 
 		template<typename RetType, typename... Args>
-		static RetType CallInternal(
+		static RetType CallMember(
 			Target *instance,
-			RetType ( Target::* original )( Args... ),
+			RetType ( Target::*original )( Args... ),
 			Args... args
 		)
 		{
@@ -605,31 +638,37 @@ namespace Detouring
 			auto it = hooks.find( address );
 			if( it != hooks.end( ) )
 			{
-				target.address = ( *it ).second.GetTrampoline( );
-				if( target.address != nullptr )
+				void *trampoline = ( *it ).second.GetTrampoline( );
+				if( trampoline != nullptr )
+				{
+					target.address = ( *it ).second.GetTrampoline( );
 					target.index = 0;
+					target.type = Member::Type::NonVirtual;
+				}
 			}
 
-			if( target.index >= target_size )
+			if( !target.IsValid( ) )
 			{
 				target = GetTargetVirtualAddress( original );
-				if( target.index < target_size )
+				if( target.IsValid( ) )
 					target.address = original_vtable[target.index];
 			}
 
-			if( target.index >= target_size )
+			if( !target.IsValid( ) )
 			{
-				target.address = address;
-				if( target.address != nullptr )
+				if( address != nullptr )
+				{
+					target.address = address;
 					target.index = 0;
+					target.type = Member::Type::NonVirtual;
+				}
+				else
+					return RetType( );
 			}
-
-			if( target.index >= target_size )
-				return RetType( );
 
 			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &target );
 
-#ifndef MAC_OS_X_BAD_SDK
+#ifndef BAD_GCC_VERSION
 
 			return ( instance->**typedfunc )( std::forward<Args>( args )... );
 
@@ -639,6 +678,28 @@ namespace Detouring
 
 #endif
 
+		}
+
+		// can be used with interfaces and implementations
+		template<typename RetType, typename Class, typename... Args>
+		static Member GetVirtualAddressInternal(
+			CacheMap &cache,
+			void **vtable,
+			size_t size,
+			RetType ( Class::*method )( Args... )
+		)
+		{
+			void *member = GetAddress( method );
+			auto it = cache.find( member );
+			if( it != cache.end( ) )
+				return ( *it ).second;
+
+			Member address = GetVirtualAddress( vtable, size, method );
+
+			if( address.IsValid( ) )
+				cache[member] = address;
+
+			return address;
 		}
 
 		static size_t target_size;
