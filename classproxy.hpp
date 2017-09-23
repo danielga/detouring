@@ -55,7 +55,7 @@
 
 #endif
 
-#ifdef COMPILER_VS
+#ifdef COMPILER_VC
 
 #ifdef ARCHITECTURE_X86_64
 
@@ -160,7 +160,7 @@ namespace Detouring
 			return IsHookedFunction( original );
 		}
 
-#ifdef COMPILER_VS
+#ifdef COMPILER_VC
 
 		template<typename RetType, typename... Args>
 		static bool IsHooked(
@@ -197,7 +197,7 @@ namespace Detouring
 			return HookFunction( original, substitute );
 		}
 
-#ifdef COMPILER_VS
+#ifdef COMPILER_VC
 
 		template<typename RetType, typename... Args>
 		static bool Hook(
@@ -240,7 +240,7 @@ namespace Detouring
 			return UnHookFunction( original );
 		}
 
-#ifdef COMPILER_VS
+#ifdef COMPILER_VC
 
 		template<typename RetType, typename... Args>
 		static bool UnHook(
@@ -293,7 +293,7 @@ namespace Detouring
 
 		}
 
-#ifdef COMPILER_VS
+#ifdef COMPILER_VC
 
 		template<typename RetType, typename... Args>
 		static RetType Call(
@@ -385,7 +385,7 @@ namespace Detouring
 
 		}
 
-#ifdef COMPILER_VS
+#ifdef COMPILER_VC
 
 		template<typename RetType, typename... Args>
 		inline RetType Call(

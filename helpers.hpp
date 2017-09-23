@@ -101,7 +101,7 @@ namespace Detouring
 	{
 		RetType ( Class::** pmethod )( Args... ) = &method;
 
-#ifdef COMPILER_VS
+#ifdef COMPILER_VC
 
 		void *address = *reinterpret_cast<void **>( pmethod );
 
@@ -130,7 +130,7 @@ namespace Detouring
 		if( vtable == nullptr || size == 0 || method == nullptr )
 			return Member( );
 
-#ifdef COMPILER_VS
+#ifdef COMPILER_VC
 
 		void *member = GetAddress( method );
 		uint8_t *addr = reinterpret_cast<uint8_t *>( member );
