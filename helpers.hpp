@@ -45,6 +45,7 @@
 #include <stdint.h>
 #include <cstddef>
 #include "hook.hpp"
+#include "../Platform.hpp"
 
 namespace Detouring
 {
@@ -100,7 +101,7 @@ namespace Detouring
 	{
 		RetType ( Class::** pmethod )( Args... ) = &method;
 
-#ifdef _MSC_VER
+#ifdef COMPILER_VS
 
 		void *address = *reinterpret_cast<void **>( pmethod );
 
@@ -129,12 +130,12 @@ namespace Detouring
 		if( vtable == nullptr || size == 0 || method == nullptr )
 			return Member( );
 
-#ifdef _MSC_VER
+#ifdef COMPILER_VS
 
 		void *member = GetAddress( method );
 		uint8_t *addr = reinterpret_cast<uint8_t *>( member );
 
-#ifdef _WIN64
+#ifdef ARCHITECTURE_X86_64
 
 		// x86-64, mov rax, [rcx]
 		if( addr[0] == 0x48 )

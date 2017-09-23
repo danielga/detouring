@@ -34,47 +34,30 @@
 *************************************************************************/
 
 #include "helpers.hpp"
+#include "../Platform.hpp"
 
-#if defined _WIN32
+#if defined SYSTEM_WINDOWS
+
+#define WIN32_LEAN_AND_MEAN
 
 #include <Windows.h>
 
 #define PAGE_EXECUTE_FLAGS \
 	( PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY )
 
-#elif defined __linux
+#elif defined SYSTEM_LINUX
 
 #include <sys/mman.h>
 #include <unistd.h>
 #include <cstdio>
 #include <cinttypes>
 
-#elif defined __APPLE__
+#elif defined SYSTEM_MACOSX
 
 #include <sys/mman.h>
 #include <unistd.h>
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
-
-#else
-
-#error Unsupported operating system.
-
-#endif
-
-#if defined( _M_X64 ) || defined( __amd64__ ) || defined( __amd64 ) || \
-	defined( __x86_64__ ) || defined( __x86_64 )
-
-#define ARCH_X86_64
-
-#elif defined( _M_IX86 ) || defined( ___i386__ ) || defined( __i386 ) || \
-	defined( __X86__ ) || defined( _X86_ ) || defined( __I86__ )
-
-#define ARCH_X86
-
-#else
-
-#error Unsupported architecture.
 
 #endif
 
@@ -104,7 +87,7 @@ namespace Detouring
 		if( address == nullptr )
 			return MemoryProtection::Error;
 
-#if defined _WIN32
+#if defined SYSTEM_WINDOWS
 
 		MEMORY_BASIC_INFORMATION mi = { 0 };
 		if( VirtualQuery( address, &mi, sizeof( mi ) ) == 1 && mi.State == MEM_COMMIT )
@@ -130,12 +113,12 @@ namespace Detouring
 
 		return MemoryProtection::Error;
 
-#elif defined __APPLE__
+#elif defined SYSTEM_MACOSX
 
 		mach_vm_address_t _address = reinterpret_cast<mach_vm_address_t>( address );
 		mach_vm_size_t vmsize = 0;
 
-#ifdef ARCH_X86_64
+#ifdef ARCHITECTURE_X86_64
 
 		vm_region_basic_info_data_64_t info;
 		mach_msg_type_number_t info_count = VM_REGION_BASIC_INFO_COUNT_64;
@@ -227,7 +210,7 @@ namespace Detouring
 		if( address == nullptr || length == 0 || protection < MemoryProtection::None )
 			return false;
 
-#if defined _WIN32
+#if defined SYSTEM_WINDOWS
 
 		DWORD _protection = 0;
 
@@ -266,7 +249,7 @@ namespace Detouring
 		DWORD oldprotection = 0;
 		return VirtualProtect( address, length, _protection, &oldprotection ) == 1;
 
-#elif defined __APPLE__
+#elif defined SYSTEM_MACOSX
 
 		vm_prot_t _protection = 0;
 

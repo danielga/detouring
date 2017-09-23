@@ -42,14 +42,11 @@
 #include <vector>
 #include "hook.hpp"
 #include "helpers.hpp"
+#include "../Platform.hpp"
 
-#if !defined __clang__ && \
-	defined __GNUC__ && \
-	( __GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__ ) < 40300
+#ifdef SYSTEM_MACOSX_BAD
 
 #include <map>
-
-#define BAD_GCC_VERSION
 
 #else
 
@@ -58,9 +55,9 @@
 
 #endif
 
-#ifdef _MSC_VER
+#ifdef COMPILER_VS
 
-#if defined _WIN64
+#ifdef ARCHITECTURE_X86_64
 
 #define CLASSPROXY_CALLING_CONVENTION __fastcall
 
@@ -75,7 +72,7 @@
 namespace Detouring
 {
 
-#ifndef BAD_GCC_VERSION
+#ifndef SYSTEM_MACOSX_BAD
 
 	typedef std::unordered_map<void *, Member> CacheMap;
 	typedef std::unordered_map<void *, Detouring::Hook> HookMap;
@@ -163,7 +160,7 @@ namespace Detouring
 			return IsHookedFunction( original );
 		}
 
-#ifdef _MSC_VER
+#ifdef COMPILER_VS
 
 		template<typename RetType, typename... Args>
 		static bool IsHooked(
@@ -200,7 +197,7 @@ namespace Detouring
 			return HookFunction( original, substitute );
 		}
 
-#ifdef _MSC_VER
+#ifdef COMPILER_VS
 
 		template<typename RetType, typename... Args>
 		static bool Hook(
@@ -243,7 +240,7 @@ namespace Detouring
 			return UnHookFunction( original );
 		}
 
-#ifdef _MSC_VER
+#ifdef COMPILER_VS
 
 		template<typename RetType, typename... Args>
 		static bool UnHook(
@@ -284,7 +281,7 @@ namespace Detouring
 
 			auto method = reinterpret_cast<RetType ( * )( Target *, Args... )>( target );
 
-#ifndef BAD_GCC_VERSION
+#ifndef SYSTEM_MACOSX_BAD
 
 			return method( instance, std::forward<Args>( args )... );
 
@@ -296,7 +293,7 @@ namespace Detouring
 
 		}
 
-#ifdef _MSC_VER
+#ifdef COMPILER_VS
 
 		template<typename RetType, typename... Args>
 		static RetType Call(
@@ -328,7 +325,7 @@ namespace Detouring
 		)
 		{
 
-#ifndef BAD_GCC_VERSION
+#ifndef SYSTEM_MACOSX_BAD
 
 			return CallMember<RetType, Args...>( instance, original, std::forward<Args>( args )... );
 
@@ -348,7 +345,7 @@ namespace Detouring
 		)
 		{
 
-#ifndef BAD_GCC_VERSION
+#ifndef SYSTEM_MACOSX_BAD
 
 			return CallMember<RetType, Args...>(
 				instance,
@@ -372,7 +369,7 @@ namespace Detouring
 		inline RetType Call( RetType ( *original )( Target *, Args... ), Args... args )
 		{
 
-#ifndef BAD_GCC_VERSION
+#ifndef SYSTEM_MACOSX_BAD
 
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
@@ -388,7 +385,7 @@ namespace Detouring
 
 		}
 
-#ifdef _MSC_VER
+#ifdef COMPILER_VS
 
 		template<typename RetType, typename... Args>
 		inline RetType Call(
@@ -407,7 +404,7 @@ namespace Detouring
 		inline RetType Call( RetType ( Target::*original )( Args... ), Args... args )
 		{
 
-#ifndef BAD_GCC_VERSION
+#ifndef SYSTEM_MACOSX_BAD
 
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
@@ -427,7 +424,7 @@ namespace Detouring
 		inline RetType Call( RetType ( Target::*original )( Args... ) const, Args... args )
 		{
 
-#ifndef BAD_GCC_VERSION
+#ifndef SYSTEM_MACOSX_BAD
 
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
@@ -670,7 +667,7 @@ namespace Detouring
 
 			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &target );
 
-#ifndef BAD_GCC_VERSION
+#ifndef SYSTEM_MACOSX_BAD
 
 			return ( instance->**typedfunc )( std::forward<Args>( args )... );
 
@@ -731,5 +728,3 @@ namespace Detouring
 	template<typename Target, typename Substitute>
 	HookMap ClassProxy<Target, Substitute>::hooks;
 }
-
-#undef BAD_GCC_VERSION
