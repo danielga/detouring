@@ -43,16 +43,18 @@
 #include "hook.hpp"
 #include "helpers.hpp"
 
-#if !defined __GNUC__ || ( __GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__ ) >= 40300
-
-#include <unordered_map>
-#include <utility>
-
-#else
+#if !defined __clang__ && \
+	defined __GNUC__ && \
+	( __GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__ ) < 40300
 
 #include <map>
 
 #define BAD_GCC_VERSION
+
+#else
+
+#include <unordered_map>
+#include <utility>
 
 #endif
 
@@ -729,3 +731,5 @@ namespace Detouring
 	template<typename Target, typename Substitute>
 	HookMap ClassProxy<Target, Substitute>::hooks;
 }
+
+#undef BAD_GCC_VERSION
