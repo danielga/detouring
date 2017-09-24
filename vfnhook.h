@@ -51,6 +51,7 @@ void main( )
 
 #include <stdint.h>
 #include "helpers.hpp"
+#include "../Platform.hpp"
 
 #define VTBL( classptr ) ( *(uintptr_t *)classptr )
 #define PVFN_( classptr, offset ) ( VTBL( classptr ) + offset )
@@ -58,7 +59,7 @@ void main( )
 #define PVFN( classptr, offset ) PVFN_( classptr, ( offset ) * sizeof( void * ) )
 #define VFN( classptr, offset ) VFN_( classptr, ( offset ) * sizeof( void * ) )
 
-#if defined _WIN32
+#if defined SYSTEM_WINDOWS
 
 #include <cstring>
 
@@ -122,7 +123,7 @@ private:
 	*(uintptr_t *)PVFN( classptr, index ) = (uintptr_t)funcname##Raw_Org; \
 	Detouring::ProtectMemory( (void *)VTBL( classptr ), ( index + 1 ) * sizeof( void * ), true )
 
-#elif defined __linux || defined __APPLE__
+#elif defined SYSTEM_POSIX
 
 #define VFUNC
 
@@ -139,10 +140,6 @@ private:
 	Detouring::ProtectMemory( (void *)VTBL( classptr ), ( index + 1 ) * sizeof( void * ), false ); \
 	*(uintptr_t *)PVFN( classptr, index ) = (uintptr_t)funcname; \
 	Detouring::ProtectMemory( (void *)VTBL( classptr ), ( index + 1 ) * sizeof( void * ), true )
-
-#else
-
-#error Unsupported platform.
 
 #endif
 

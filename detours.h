@@ -89,8 +89,9 @@
 #include <string>
 #include <stdexcept>
 #include "minhook/include/minhook.h"
+#include "../Platform.hpp"
 
-#ifndef _WIN32
+#ifdef SYSTEM_POSIX
 
 #include <dlfcn.h>
 
@@ -112,7 +113,7 @@
 namespace MologieDetours
 {
 
-#ifdef _WIN32
+#ifdef SYSTEM_WINDOWS
 
 	extern "C" __declspec( dllimport ) void *__stdcall GetModuleHandleA(
 		const char *lpModuleName
@@ -251,6 +252,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		Detour( function_type pSource, function_type pDetour ) :
 			target( pSource ),
 			detour( pDetour )
@@ -270,6 +272,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		Detour( function_type pSource, function_type pDetour, size_t instructionCount ) :
 			target( pSource ),
 			detour( pDetour )
@@ -278,7 +281,7 @@ namespace MologieDetours
 			CreateDetour( );
 		}
 
-#ifdef _WIN32
+#ifdef SYSTEM_WINDOWS
 
 		/**
 		* @fn Detour::Detour( const char *moduleName, const char *lpProcName, function_type pDetour )
@@ -291,6 +294,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		Detour( const char *moduleName, const char *lpProcName, function_type pDetour ) :
 			target( reinterpret_cast<function_type>(
 				GetProcAddress( GetModuleHandleA( moduleName ), lpProcName ) )
@@ -310,6 +314,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		Detour( void *module, const char *lpProcName, function_type pDetour ) :
 			target( reinterpret_cast<function_type>( GetProcAddress( module, lpProcName ) ) ),
 			detour( pDetour )
@@ -330,6 +335,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		Detour( const char *moduleName, const char *lpProcName, function_type pDetour ) :
 			target( nullptr ),
 			detour( pDetour )
@@ -352,6 +358,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		Detour( void *module, const char *lpProcName, function_type pDetour ) :
 			target( reinterpret_cast<function_type>( dlsym( module, lpProcName ) ) ),
 			detour( pDetour )
@@ -368,6 +375,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		~Detour( )
 		{
 			try
@@ -388,6 +396,7 @@ namespace MologieDetours
 		* @deprecated Since this uses the MinHook library, it is impossible to retrieve the code size.
 		* Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		size_t GetInstructionCount( )
 		{
 			return 0;
@@ -402,6 +411,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		function_type GetSource( )
 		{
 			return target;
@@ -416,6 +426,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		function_type GetDetour( )
 		{
 			return detour;
@@ -430,6 +441,7 @@ namespace MologieDetours
 		*
 		* @deprecated Please port all code that uses this header to the new one.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		function_type GetOriginalFunction( )
 		{
 			return trampoline;
@@ -568,6 +580,7 @@ namespace MologieDetours
 		*
 		* @deprecated This function is a dummy.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		DetourImport( uintptr_t, function_type )
 		{ }
 
@@ -580,25 +593,10 @@ namespace MologieDetours
 		*
 		* @deprecated This function is a dummy.
 		*/
+		DEPRECATED_WITH_SUBSTITUTE( Detouring::Hook )
 		bool IsValid( )
 		{
 			return false;
 		}
 	};
-
-#ifdef _WIN32
-
-	/**
-	* @class DetourHotpatch
-	*
-	* @brief Creates a new local detour using hotpatching.
-	*
-	* @deprecated This class is a dummy.
-	*/
-	template<typename function_type>
-	class DetourHotpatch : public Detour<function_type>
-	{ };
-
-#endif
-
 }

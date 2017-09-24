@@ -294,15 +294,13 @@ namespace Detouring
 
 	bool ProtectMemory( void *address, size_t length, bool protect )
 	{
-		static int32_t previous = 0;
-		previous = SetMemoryProtection(
+		return SetMemoryProtection(
 			address,
 			length,
 			protect ?
-				previous :
+				( MemoryProtection::Read | MemoryProtection::Execute ) :
 				( MemoryProtection::Read | MemoryProtection::Write | MemoryProtection::Execute )
 		);
-		return previous != MemoryProtection::Error;
 	}
 
 	bool IsExecutableAddress( void *address )
