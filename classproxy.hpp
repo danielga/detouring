@@ -482,7 +482,7 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static bool IsHookedFunction( RetType ( *original )( Target *, Args... ) )
 		{
-			return hooks.find( original ) != hooks.end( );
+			return hooks.find( reinterpret_cast<void *>( original ) ) != hooks.end( );
 		}
 
 		template<typename RetType, typename... Args>
@@ -505,7 +505,7 @@ namespace Detouring
 			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
-			void *address = original;
+			void *address = reinterpret_cast<void *>( original );
 			if( address == nullptr )
 				return false;
 
@@ -575,7 +575,7 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static bool UnHookFunction( RetType ( *original )( Target *, Args... ) )
 		{
-			auto it = hooks.find( original );
+			auto it = hooks.find( reinterpret_cast<void *>( original ) );
 			if( it != hooks.end( ) )
 			{
 				hooks.erase( it );
@@ -613,7 +613,7 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		static void *CallFunctionTarget( RetType ( *original )( Target *, Args... ) )
 		{
-			void *address = original, *target = nullptr;
+			void *address = reinterpret_cast<void *>( original ), *target = nullptr;
 
 			auto it = hooks.find( address );
 			if( it != hooks.end( ) )
