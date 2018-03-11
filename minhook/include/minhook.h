@@ -48,9 +48,6 @@ typedef enum MH_STATUS
     // Successful.
     MH_OK = 0,
 
-    // MinHook is already initialized.
-    MH_ERROR_ALREADY_INITIALIZED,
-
     // MinHook is not initialized yet, or already uninitialized.
     MH_ERROR_NOT_INITIALIZED,
 
@@ -96,12 +93,11 @@ MH_STATUS;
 extern "C" {
 #endif
 
-    // Initialize the MinHook library. You must call this function EXACTLY ONCE
-    // at the beginning of your program.
+    // Initialize the MinHook library.
     MH_STATUS MH_API MH_Initialize(void);
 
     // Uninitialize the MinHook library. You must call this function EXACTLY
-    // ONCE at the end of your program.
+    // as many times as you called MH_Initialize.
     MH_STATUS MH_API MH_Uninitialize(void);
 
     // Creates a Hook for the specified target function, in disabled state.

@@ -21,16 +21,19 @@ I need some funds to continue developing this library. All contributions gratefu
 
 ### Version history
 
+- **v1.3.7 - 11 Mar 2018**
+  * Rewrote initialization procedure to have a counter, only uninitialize after it hits zero.
+
 - **v1.3.6 - 29 Aug 2017**
-  * Fixed IsExecutableAddress failing in x86-64 because of incorrect parameters
+  * Fixed IsExecutableAddress failing in x86-64 because of incorrect parameters.
 
 - **v1.3.5 - 28 Aug 2017**
-  * Improved architecture discovery
-  * Added full MacOS X support (thread suspension and context changing)
-  * Added GCC Makefile (able to compile for Windows, Linux and MacOS X)
+  * Improved architecture discovery.
+  * Added full MacOS X support (thread suspension and context changing).
+  * Added GCC Makefile (able to compile for Windows, Linux and MacOS X).
 
 - **v1.3.4 - 27 Aug 2017**
-  * Added POSIX support
+  * Added POSIX support.
 
 - **v1.3.3 - 8 Jan 2017**
   * Added a helper function ```MH_CreateHookApiEx```. (Thanks to asm256)

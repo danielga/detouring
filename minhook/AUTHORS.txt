@@ -9,3 +9,4 @@ Andrey Unis <uniskz@gmail.com>
 
 Daniel Almeida <danielga@outlook.pt>
  Added POSIX and MacOS X support.
+ Rewrote the initialization procedure to have a counter.

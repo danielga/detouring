@@ -120,6 +120,9 @@ HANDLE g_hHeap = NULL;
 volatile bool g_isLocked = false;
 #endif
 
+// Initialization counter, only uninitialize when it hits zero.
+volatile int32_t g_initCounter = 0;
+
 // Hook entries.
 struct
 {
@@ -643,9 +646,9 @@ MH_STATUS MH_API MH_Initialize(void)
 
     EnterSpinLock();
 
-#ifdef _WIN32
-    if (g_hHeap == NULL)
+    if (g_initCounter == 0)
     {
+#ifdef _WIN32
         g_hHeap = HeapCreate(0, 0, 0);
         if (g_hHeap != NULL)
         {
@@ -658,12 +661,13 @@ MH_STATUS MH_API MH_Initialize(void)
         {
             status = MH_ERROR_MEMORY_ALLOC;
         }
-    }
-    else
-    {
-        status = MH_ERROR_ALREADY_INITIALIZED;
-    }
 #endif
+    }
+
+    if (status == MH_OK)
+    {
+        ++g_initCounter;
+    }
 
     LeaveSpinLock();
 
@@ -677,10 +681,13 @@ MH_STATUS MH_API MH_Uninitialize(void)
 
     EnterSpinLock();
 
-#ifdef _WIN32
-    if (g_hHeap != NULL)
+    if (g_initCounter == 0)
     {
-#endif
+        return MH_ERROR_NOT_INITIALIZED;
+    }
+
+    if (g_initCounter == 1)
+    {
         status = EnableAllHooksLL(false);
         if (status == MH_OK)
         {
@@ -691,26 +698,25 @@ MH_STATUS MH_API MH_Uninitialize(void)
 
             UninitializeBuffer();
 
-#ifdef _WIN32
+    #ifdef _WIN32
             HeapFree(g_hHeap, 0, g_hooks.pItems);
             HeapDestroy(g_hHeap);
 
             g_hHeap = NULL;
-#else
+    #else
             free(g_hooks.pItems);
-#endif
+    #endif
 
             g_hooks.pItems   = NULL;
             g_hooks.capacity = 0;
             g_hooks.size     = 0;
         }
-#ifdef _WIN32
     }
-    else
+
+    if (status == MH_OK)
     {
-        status = MH_ERROR_NOT_INITIALIZED;
+        --g_initCounter;
     }
-#endif
 
     LeaveSpinLock();
 
@@ -1116,7 +1122,6 @@ const char *MH_API MH_StatusToString(MH_STATUS status)
     switch (status) {
         MH_ST2STR(MH_UNKNOWN)
         MH_ST2STR(MH_OK)
-        MH_ST2STR(MH_ERROR_ALREADY_INITIALIZED)
         MH_ST2STR(MH_ERROR_NOT_INITIALIZED)
         MH_ST2STR(MH_ERROR_ALREADY_CREATED)
         MH_ST2STR(MH_ERROR_NOT_CREATED)

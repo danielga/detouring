@@ -90,6 +90,7 @@
 #include <stdexcept>
 #include "minhook/include/minhook.h"
 #include "../Platform.hpp"
+#include "hook.hpp"
 
 #ifdef SYSTEM_POSIX
 
@@ -463,6 +464,7 @@ namespace MologieDetours
 		*/
 		void CreateDetour( )
 		{
+			static Detouring::Initializer _initializer;
 			switch( MH_CreateHook(
 				reinterpret_cast<void *>( target ),
 				reinterpret_cast<void *>( detour ),

@@ -37,6 +37,13 @@
 
 namespace Detouring
 {
+	class Initializer
+	{
+	public:
+		Initializer( );
+		~Initializer( );
+	};
+
 	class Hook
 	{
 	public:

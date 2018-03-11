@@ -40,25 +40,19 @@
 
 namespace Detouring
 {
-	class Initializer
+	Initializer::Initializer( )
 	{
-	public:
-		Initializer( )
-		{
-			MH_STATUS status = MH_Initialize( );
-			if( status != MH_OK )
-				throw std::runtime_error( MH_StatusToString( status ) );
-		}
+		MH_STATUS status = MH_Initialize( );
+		if( status != MH_OK )
+			throw std::runtime_error( MH_StatusToString( status ) );
+	}
 
-		~Initializer( )
-		{
-			MH_STATUS status = MH_Uninitialize( );
-			if( status != MH_OK )
-				std::cerr << "MinHook uninitialization failed: " << MH_StatusToString( status ) << std::endl;
-		}
-	};
-
-	static Initializer _initializer;
+	Initializer::~Initializer( )
+	{
+		MH_STATUS status = MH_Uninitialize( );
+		if( status != MH_OK )
+			std::cerr << "MinHook uninitialization failed: " << MH_StatusToString( status ) << std::endl;
+	}
 
 	Hook::Hook( ) :
 		target( nullptr ),
@@ -89,6 +83,7 @@ namespace Detouring
 		if( _target == nullptr || _detour == nullptr )
 			return false;
 
+		static Initializer _initializer;
 		if( MH_CreateHook( _target, _detour, &trampoline ) == MH_OK )
 		{
 			target = _target;
