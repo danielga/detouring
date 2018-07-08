@@ -374,17 +374,13 @@ bool IsExecutableAddress(void *pAddress)
     return (mi.State == MEM_COMMIT && (mi.Protect & PAGE_EXECUTE_FLAGS));
 #elif defined(__APPLE__)
     mach_vm_address_t address = (mach_vm_address_t)pAddress;
-    mach_vm_size_t vmsize;
-#ifdef MH_X86_64
-    vm_region_basic_info_data_64_t info;
+    mach_vm_size_t vmsize = 0;
+    vm_region_flavor_t flavor = VM_REGION_BASIC_INFO_64;
+    vm_region_basic_info_data_64_t info = { 0 };
     mach_msg_type_number_t info_count = VM_REGION_BASIC_INFO_COUNT_64;
-#else
-    vm_region_basic_info_data_t info;
-    mach_msg_type_number_t info_count = VM_REGION_BASIC_INFO_COUNT;
-#endif
-    memory_object_name_t object;
+    memory_object_name_t object = MACH_PORT_NULL;
 
-    kern_return_t status = mach_vm_region(mach_task_self(), &address, &vmsize, VM_REGION_BASIC_INFO,
+    kern_return_t status = mach_vm_region(mach_task_self(), &address, &vmsize, flavor,
         (vm_region_info_t)&info, &info_count, &object);
     return status == KERN_SUCCESS && (info.protection & VM_PROT_EXECUTE);
 #else

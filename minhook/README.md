@@ -21,6 +21,10 @@ I need some funds to continue developing this library. All contributions gratefu
 
 ### Version history
 
+- **v1.3.8 - 8 Jul 2018**
+  * Fixed MH_CreateHookApiEx malloc size for module name.
+  * Fixed IsExecutableAddress for macOS (using incorrect region basic info).
+
 - **v1.3.7 - 11 Mar 2018**
   * Rewrote initialization procedure to have a counter, only uninitialize after it hits zero.
 

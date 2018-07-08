@@ -35,6 +35,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace Detouring
 {
 	class Initializer
@@ -49,12 +51,14 @@ namespace Detouring
 	public:
 		Hook( );
 		Hook( void *_target, void *_detour );
+        Hook( const std::wstring &module, const std::string &_target, void *_detour );
 
 		~Hook( );
 
 		bool IsValid( ) const;
 
 		bool Create( void *_target, void *_detour );
+		bool Create( const std::wstring &module, const std::string &_target, void *_detour );
 		bool Destroy( );
 
 		bool Enable( );

@@ -68,6 +68,14 @@ namespace Detouring
 		Create( _target, _detour );
 	}
 
+    Hook::Hook( const std::wstring &module, const std::string &_target, void *_detour ) :
+        target( nullptr ),
+        detour( nullptr ),
+        trampoline( nullptr )
+    {
+        Create( module, _target, _detour );
+    }
+
 	Hook::~Hook( )
 	{
 		Destroy( );
@@ -87,6 +95,21 @@ namespace Detouring
 		if( MH_CreateHook( _target, _detour, &trampoline ) == MH_OK )
 		{
 			target = _target;
+			detour = _detour;
+			return true;
+		}
+
+		return false;
+	}
+
+	bool Hook::Create( const std::wstring &module, const std::string &_target, void *_detour )
+	{
+		if( module.empty( ) || _target.empty( ) || _detour == nullptr )
+			return false;
+
+		static Initializer _initializer;
+		if( MH_CreateHookApiEx( module.c_str( ), _target.c_str( ), _detour, &trampoline, &target ) == MH_OK )
+		{
 			detour = _detour;
 			return true;
 		}

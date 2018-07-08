@@ -1077,6 +1077,7 @@ MH_STATUS MH_API MH_CreateHookApiEx(
     if (len == (size_t)-1)
         return MH_ERROR_MEMORY_ALLOC;
 
+    ++len;
     char *pszModuleMB = (char *)malloc(len);
     if (pszModuleMB == NULL)
         return MH_ERROR_MEMORY_ALLOC;
