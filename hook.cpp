@@ -68,13 +68,13 @@ namespace Detouring
 		Create( _target, _detour );
 	}
 
-    Hook::Hook( const std::wstring &module, const std::string &_target, void *_detour ) :
-        target( nullptr ),
-        detour( nullptr ),
-        trampoline( nullptr )
-    {
-        Create( module, _target, _detour );
-    }
+	Hook::Hook( const std::wstring &module, const std::string &_target, void *_detour ) :
+		target( nullptr ),
+		detour( nullptr ),
+		trampoline( nullptr )
+	{
+		Create( module, _target, _detour );
+	}
 
 	Hook::~Hook( )
 	{
