@@ -34,26 +34,11 @@
 *************************************************************************/
 
 #include "hook.hpp"
+#include "helpers.hpp"
 #include "minhook/include/minhook.h"
-#include <stdexcept>
-#include <iostream>
 
 namespace Detouring
 {
-	Initializer::Initializer( )
-	{
-		MH_STATUS status = MH_Initialize( );
-		if( status != MH_OK )
-			throw std::runtime_error( MH_StatusToString( status ) );
-	}
-
-	Initializer::~Initializer( )
-	{
-		MH_STATUS status = MH_Uninitialize( );
-		if( status != MH_OK )
-			std::cerr << "MinHook uninitialization failed: " << MH_StatusToString( status ) << std::endl;
-	}
-
 	Hook::Hook( ) :
 		target( nullptr ),
 		detour( nullptr ),
@@ -91,7 +76,7 @@ namespace Detouring
 		if( _target == nullptr || _detour == nullptr )
 			return false;
 
-		static Initializer _initializer;
+		Initialize( );
 		if( MH_CreateHook( _target, _detour, &trampoline ) == MH_OK )
 		{
 			target = _target;
@@ -107,7 +92,7 @@ namespace Detouring
 		if( module.empty( ) || _target.empty( ) || _detour == nullptr )
 			return false;
 
-		static Initializer _initializer;
+		Initialize( );
 		if( MH_CreateHookApiEx( module.c_str( ), _target.c_str( ), _detour, &trampoline, &target ) == MH_OK )
 		{
 			detour = _detour;
