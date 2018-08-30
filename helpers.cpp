@@ -35,6 +35,9 @@
 
 #include "helpers.hpp"
 #include "../Platform.hpp"
+#include "minhook/include/minhook.h"
+#include <stdexcept>
+#include <iostream>
 
 #if defined SYSTEM_WINDOWS
 
@@ -63,6 +66,29 @@
 
 namespace Detouring
 {
+	class Initializer
+	{
+	public:
+		Initializer( )
+		{
+			MH_STATUS status = MH_Initialize( );
+			if( status != MH_OK )
+				throw std::runtime_error( MH_StatusToString( status ) );
+		}
+
+		~Initializer( )
+		{
+			MH_STATUS status = MH_Uninitialize( );
+			if( status != MH_OK )
+				std::cerr << "MinHook uninitialization failed: " << MH_StatusToString( status ) << std::endl;
+		}
+	};
+
+	void Initialize( )
+	{
+		static Initializer initializer;
+	}
+
 	Member::Member( )
 	{
 		address = nullptr;
