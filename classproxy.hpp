@@ -4,7 +4,7 @@
 * calls in substitute classes. Contains helpers for detouring regular
 * member functions as well.
 *------------------------------------------------------------------------
-* Copyright (c) 2017, Daniel Almeida
+* Copyright (c) 2017-2018, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -37,52 +37,25 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <cstddef>
-#include <vector>
 #include "hook.hpp"
 #include "helpers.hpp"
-#include "../Platform.hpp"
-
-#ifdef SYSTEM_MACOSX_BAD
-
-#include <map>
-
-#else
-
+#include "platform.hpp"
+#include <cstdint>
+#include <cstddef>
+#include <vector>
 #include <unordered_map>
 #include <utility>
 
-#endif
-
-#ifdef COMPILER_VC
-
-#ifdef ARCHITECTURE_X86_64
-
-#define CLASSPROXY_CALLING_CONVENTION __fastcall
-
-#else
+#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
 
 #define CLASSPROXY_CALLING_CONVENTION __thiscall
 
 #endif
 
-#endif
-
 namespace Detouring
 {
-
-#ifndef SYSTEM_MACOSX_BAD
-
 	typedef std::unordered_map<void *, Member> CacheMap;
 	typedef std::unordered_map<void *, Detouring::Hook> HookMap;
-
-#else
-
-	typedef std::map<void *, Member> CacheMap;
-	typedef std::map<void *, Detouring::Hook> HookMap;
-
-#endif
 
 	template<typename Target, typename Substitute>
 	class ClassProxy
@@ -160,7 +133,7 @@ namespace Detouring
 			return IsHookedFunction( original );
 		}
 
-#ifdef COMPILER_VC
+#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
 
 		template<typename RetType, typename... Args>
 		static bool IsHooked(
@@ -197,7 +170,7 @@ namespace Detouring
 			return HookFunction( original, substitute );
 		}
 
-#ifdef COMPILER_VC
+#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
 
 		template<typename RetType, typename... Args>
 		static bool Hook(
@@ -240,7 +213,7 @@ namespace Detouring
 			return UnHookFunction( original );
 		}
 
-#ifdef COMPILER_VC
+#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
 
 		template<typename RetType, typename... Args>
 		static bool UnHook(
@@ -280,20 +253,10 @@ namespace Detouring
 				return RetType( );
 
 			auto method = reinterpret_cast<RetType ( * )( Target *, Args... )>( target );
-
-#ifndef SYSTEM_MACOSX_BAD
-
 			return method( instance, std::forward<Args>( args )... );
-
-#else
-
-			return method( instance, args... );
-
-#endif
-
 		}
 
-#ifdef COMPILER_VC
+#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
 
 		template<typename RetType, typename... Args>
 		static RetType Call(
@@ -324,17 +287,7 @@ namespace Detouring
 			Args... args
 		)
 		{
-
-#ifndef SYSTEM_MACOSX_BAD
-
 			return CallMember<RetType, Args...>( instance, original, std::forward<Args>( args )... );
-
-#else
-
-			return CallMember<RetType, Args...>( instance, original, args ... );
-
-#endif
-
 		}
 
 		template<typename RetType, typename... Args>
@@ -344,48 +297,22 @@ namespace Detouring
 			Args... args
 		)
 		{
-
-#ifndef SYSTEM_MACOSX_BAD
-
 			return CallMember<RetType, Args...>(
 				instance,
 				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
 				std::forward<Args>( args )...
 			);
-
-#else
-
-			return CallMember<RetType, Args...>(
-				instance,
-				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
-				args...
-			);
-
-#endif
-
 		}
 
 		template<typename RetType, typename... Args>
 		inline RetType Call( RetType ( *original )( Target *, Args... ), Args... args )
 		{
-
-#ifndef SYSTEM_MACOSX_BAD
-
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 				);
-
-#else
-
-			return Call<RetType, Args...>(
-				reinterpret_cast<Target *>( this ), original, args...
-				);
-
-#endif
-
 		}
 
-#ifdef COMPILER_VC
+#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
 
 		template<typename RetType, typename... Args>
 		inline RetType Call(
@@ -403,41 +330,17 @@ namespace Detouring
 		template<typename RetType, typename... Args>
 		inline RetType Call( RetType ( Target::*original )( Args... ), Args... args )
 		{
-
-#ifndef SYSTEM_MACOSX_BAD
-
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
-
-#else
-
-			return Call<RetType, Args...>(
-				reinterpret_cast<Target *>( this ), original, args...
-			);
-
-#endif
-
 		}
 
 		template<typename RetType, typename... Args>
 		inline RetType Call( RetType ( Target::*original )( Args... ) const, Args... args )
 		{
-
-#ifndef SYSTEM_MACOSX_BAD
-
 			return Call<RetType, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
-
-#else
-
-			return Call<RetType, Args...>(
-				reinterpret_cast<Target *>( this ), original, args...
-			);
-
-#endif
-
 		}
 
 		template<typename RetType, typename... Args>
@@ -666,17 +569,7 @@ namespace Detouring
 			}
 
 			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &target );
-
-#ifndef SYSTEM_MACOSX_BAD
-
 			return ( instance->**typedfunc )( std::forward<Args>( args )... );
-
-#else
-
-			return ( instance->**typedfunc )( args... );
-
-#endif
-
 		}
 
 		// can be used with interfaces and implementations

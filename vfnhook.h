@@ -51,7 +51,7 @@ void main( )
 
 #include <stdint.h>
 #include "helpers.hpp"
-#include "../Platform.hpp"
+#include "platform.hpp"
 
 #define VTBL( classptr ) ( *(uintptr_t *)classptr )
 #define PVFN_( classptr, offset ) ( VTBL( classptr ) + offset )

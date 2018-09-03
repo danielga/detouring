@@ -4,7 +4,7 @@
 * replacement for MologieDetours (only implementing the simple detour
 * class).
 *------------------------------------------------------------------------
-* Copyright (c) 2017, Daniel Almeida
+* Copyright (c) 2017-2018, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -89,8 +89,9 @@
 #include <string>
 #include <stdexcept>
 #include "minhook/include/minhook.h"
-#include "../Platform.hpp"
+#include "platform.hpp"
 #include "hook.hpp"
+#include "helpers.hpp"
 
 #ifdef SYSTEM_POSIX
 
@@ -464,7 +465,7 @@ namespace MologieDetours
 		*/
 		void CreateDetour( )
 		{
-			static Detouring::Initializer _initializer;
+			Detouring::Initialize( );
 			switch( MH_CreateHook(
 				reinterpret_cast<void *>( target ),
 				reinterpret_cast<void *>( detour ),
