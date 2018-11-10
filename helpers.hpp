@@ -2,7 +2,7 @@
 * Detouring::Helpers
 * C++ helpers for detouring member functions.
 *------------------------------------------------------------------------
-* Copyright (c) 2017, Daniel Almeida
+* Copyright (c) 2017-2018, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -42,10 +42,10 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <cstddef>
 #include "hook.hpp"
-#include "../Platform.hpp"
+#include "platform.hpp"
 
 namespace Detouring
 {
