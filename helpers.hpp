@@ -102,15 +102,15 @@ namespace Detouring
 	template<typename RetType, typename Class, typename... Args>
 	inline void *GetAddress( RetType ( Class::* method )( Args... ) )
 	{
-		RetType ( Class::** pmethod )( Args... ) = &method;
 
 #ifdef COMPILER_VC
 
+		RetType ( Class::** pmethod )( Args... ) = &method;
 		void *address = *reinterpret_cast<void **>( pmethod );
 
 #else
 
-		void *address = reinterpret_cast<void *>( pmethod );
+		void *address = reinterpret_cast<void *>( method );
 
 #endif
 
