@@ -116,7 +116,7 @@ namespace Detouring
 #if defined SYSTEM_WINDOWS
 
 		MEMORY_BASIC_INFORMATION mi = { 0 };
-		if( VirtualQuery( address, &mi, sizeof( mi ) ) == 1 && mi.State == MEM_COMMIT )
+		if( VirtualQuery( address, &mi, sizeof( mi ) ) != 0 && mi.State == MEM_COMMIT )
 		{
 			int32_t oldprotection = MemoryProtection::Unknown;
 

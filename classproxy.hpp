@@ -95,19 +95,25 @@ namespace Detouring
 				return false;
 
 			target_vtable = GetVirtualTable( instance );
-			if( target_vtable == nullptr || !IsExecutableAddress( *target_vtable ) )
+			if( target_vtable == nullptr )
+				return false;
+
+			std::vector<void *> ovtable;
+			for( void **vtable = target_vtable; ovtable.size( ) < ovtable.max_size( ) && *vtable != nullptr; ++vtable )
+			{
+				if( !IsExecutableAddress( *vtable ) )
+					break;
+
+				ovtable.push_back( *vtable );
+			}
+
+			if( ovtable.empty( ) )
 			{
 				target_vtable = nullptr;
 				return false;
 			}
 
-			for(
-				void **vtable = target_vtable;
-				original_vtable.size( ) < original_vtable.max_size( ) && *vtable != nullptr;
-				++vtable
-			)
-				original_vtable.push_back( *vtable );
-
+			original_vtable = std::move( ovtable );
 			target_size = original_vtable.size( );
 
 			substitute_vtable = GetVirtualTable( substitute );
