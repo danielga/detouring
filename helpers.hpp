@@ -102,15 +102,15 @@ namespace Detouring
 	template<typename RetType, typename Class, typename... Args>
 	inline void *GetAddress( RetType ( Class::* method )( Args... ) )
 	{
+		RetType( Class::** pmethod )( Args... ) = &method;
 
 #ifdef COMPILER_VC
 
-		RetType ( Class::** pmethod )( Args... ) = &method;
 		void *address = *reinterpret_cast<void **>( pmethod );
 
 #else
 
-		void *address = reinterpret_cast<void *>( method );
+		void *address = reinterpret_cast<void *>( pmethod );
 
 #endif
 
@@ -176,8 +176,7 @@ namespace Detouring
 
 #else
 
-		RetType ( Class::** pmethod )( Args... ) = &method;
-		void *address = *reinterpret_cast<void **>( pmethod );
+		void *address = reinterpret_cast<void *>( method );
 		size_t offset = ( reinterpret_cast<uintptr_t>( address ) - 1 ) / sizeof( void * );
 		if( offset >= size )
 		{
