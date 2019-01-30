@@ -92,7 +92,7 @@ namespace Detouring
 		static bool Initialize( Target *instance, Substitute *substitute )
 		{
 			if( target_vtable != nullptr )
-				return false;
+				return true;
 
 			target_vtable = GetVirtualTable( instance );
 			if( target_vtable == nullptr )
@@ -549,7 +549,7 @@ namespace Detouring
 				void *trampoline = ( *it ).second.GetTrampoline( );
 				if( trampoline != nullptr )
 				{
-					target.address = ( *it ).second.GetTrampoline( );
+					target.address = trampoline;
 					target.index = 0;
 					target.type = Member::Type::NonVirtual;
 				}
@@ -574,7 +574,13 @@ namespace Detouring
 					return RetType( );
 			}
 
-			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &target );
+			struct CallMagic
+			{
+				void *address = nullptr;
+				const size_t offset = 0;
+				const size_t unused[2] = { 0, 0 };
+			} func = { target.address };
+			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &func );
 			return ( instance->**typedfunc )( std::forward<Args>( args )... );
 		}
 
