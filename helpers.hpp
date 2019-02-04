@@ -176,7 +176,8 @@ namespace Detouring
 
 #else
 
-		void *address = reinterpret_cast<void *>( method );
+		RetType ( Class::** pmethod )( Args... ) = &method;
+		void *address = *reinterpret_cast<void **>( pmethod );
 		size_t offset = ( reinterpret_cast<uintptr_t>( address ) - 1 ) / sizeof( void * );
 		if( offset >= size )
 		{
