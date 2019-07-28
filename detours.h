@@ -4,7 +4,7 @@
 * replacement for MologieDetours (only implementing the simple detour
 * class).
 *------------------------------------------------------------------------
-* Copyright (c) 2017-2018, Daniel Almeida
+* Copyright (c) 2017-2019, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without

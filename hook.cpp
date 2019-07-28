@@ -2,7 +2,7 @@
 * Detouring::Hook
 * A C++ class that allows you to detour functions.
 *------------------------------------------------------------------------
-* Copyright (c) 2017, Daniel Almeida
+* Copyright (c) 2017-2019, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -39,24 +39,17 @@
 
 namespace Detouring
 {
-	Hook::Hook( ) :
-		target( nullptr ),
-		detour( nullptr ),
-		trampoline( nullptr )
-	{ }
-
-	Hook::Hook( void *_target, void *_detour ) :
-		target( nullptr ),
-		detour( nullptr ),
-		trampoline( nullptr )
+	Hook::Hook( void *_target, void *_detour )
 	{
 		Create( _target, _detour );
 	}
 
-	Hook::Hook( const std::wstring &module, const std::string &_target, void *_detour ) :
-		target( nullptr ),
-		detour( nullptr ),
-		trampoline( nullptr )
+	Hook::Hook( const std::string &module, const std::string &_target, void *_detour )
+	{
+		Create( module, _target, _detour );
+	}
+
+	Hook::Hook( const std::wstring &module, const std::string &_target, void *_detour )
 	{
 		Create( module, _target, _detour );
 	}
@@ -85,6 +78,12 @@ namespace Detouring
 		}
 
 		return false;
+	}
+
+	bool Hook::Create( const std::string &module, const std::string &_target, void *_detour )
+	{
+		const std::wstring wmodule;
+		return Create( wmodule, _target, _detour );
 	}
 
 	bool Hook::Create( const std::wstring &module, const std::string &_target, void *_detour )

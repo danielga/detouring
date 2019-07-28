@@ -2,7 +2,7 @@
 * Detouring::Hook
 * A C++ class that allows you to detour functions.
 *------------------------------------------------------------------------
-* Copyright (c) 2017-2018, Daniel Almeida
+* Copyright (c) 2017-2019, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -42,8 +42,9 @@ namespace Detouring
 	class Hook
 	{
 	public:
-		Hook( );
+		Hook( ) = default;
 		Hook( void *_target, void *_detour );
+		Hook( const std::string &module, const std::string &_target, void *_detour );
 		Hook( const std::wstring &module, const std::string &_target, void *_detour );
 
 		~Hook( );
@@ -51,6 +52,7 @@ namespace Detouring
 		bool IsValid( ) const;
 
 		bool Create( void *_target, void *_detour );
+		bool Create( const std::string &module, const std::string &_target, void *_detour );
 		bool Create( const std::wstring &module, const std::string &_target, void *_detour );
 		bool Destroy( );
 
@@ -82,8 +84,8 @@ namespace Detouring
 		}
 
 	private:
-		void *target;
-		void *detour;
-		void *trampoline;
+		void *target = nullptr;
+		void *detour = nullptr;
+		void *trampoline = nullptr;
 	};
 }

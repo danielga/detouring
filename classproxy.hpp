@@ -4,7 +4,7 @@
 * calls in substitute classes. Contains helpers for detouring regular
 * member functions as well.
 *------------------------------------------------------------------------
-* Copyright (c) 2017-2018, Daniel Almeida
+* Copyright (c) 2017-2019, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
