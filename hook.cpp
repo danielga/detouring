@@ -82,7 +82,7 @@ namespace Detouring
 
 	bool Hook::Create( const std::string &module, const std::string &_target, void *_detour )
 	{
-		const std::wstring wmodule;
+		const std::wstring wmodule { module.begin( ), module.end( ) };
 		return Create( wmodule, _target, _detour );
 	}
 
