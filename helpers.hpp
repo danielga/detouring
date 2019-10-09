@@ -44,7 +44,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include "hook.hpp"
 #include "platform.hpp"
 
 namespace Detouring
