@@ -35,13 +35,38 @@
 
 #include "hook.hpp"
 #include "helpers.hpp"
+#include "platform.hpp"
 #include "minhook/include/minhook.h"
+
+#if defined SYSTEM_WINDOWS
+
+#define WIN32_LEAN_AND_MEAN
+
+#include <Windows.h>
+
+#elif defined SYSTEM_POSIX
+
+#define _GNU_SOURCE
+
+#include <dlfcn.h>
+
+#endif
 
 namespace Detouring
 {
 	Hook::Hook( void *_target, void *_detour )
 	{
 		Create( _target, _detour );
+	}
+
+	Hook::Hook( const std::string &_target, void *_detour )
+	{
+		Create( _target, _detour );
+	}
+
+	Hook::Hook( void *module, const std::string &_target, void *_detour )
+	{
+		Create( module, _target, _detour );
 	}
 
 	Hook::Hook( const std::string &module, const std::string &_target, void *_detour )
@@ -78,6 +103,31 @@ namespace Detouring
 		}
 
 		return false;
+	}
+
+	bool Hook::Create( const std::string &_target, void *_detour )
+	{
+		return Create( nullptr, _target, _detour );
+	}
+
+	bool Hook::Create( void *module, const std::string &_target, void *_detour )
+	{
+		if( _target.empty( ) )
+			return false;
+
+#if defined SYSTEM_WINDOWS
+
+		void *temp_target = reinterpret_cast<void *>( GetProcAddress(
+			reinterpret_cast<HMODULE>( module ), _target.c_str( )
+		) );
+
+#elif defined SYSTEM_POSIX
+
+		void *temp_target = dlsym( module != nullptr ? module : RTLD_DEFAULT, _target.c_str( ) );
+		
+#endif
+
+		return Create( temp_target, _detour );
 	}
 
 	bool Hook::Create( const std::string &module, const std::string &_target, void *_detour )

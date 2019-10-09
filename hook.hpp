@@ -44,6 +44,8 @@ namespace Detouring
 	public:
 		Hook( ) = default;
 		Hook( void *_target, void *_detour );
+		Hook( const std::string &_target, void *_detour );
+		Hook( void *module, const std::string &_target, void *_detour );
 		Hook( const std::string &module, const std::string &_target, void *_detour );
 		Hook( const std::wstring &module, const std::string &_target, void *_detour );
 
@@ -52,6 +54,8 @@ namespace Detouring
 		bool IsValid( ) const;
 
 		bool Create( void *_target, void *_detour );
+		bool Create( const std::string &_target, void *_detour );
+		bool Create( void *module, const std::string &_target, void *_detour );
 		bool Create( const std::string &module, const std::string &_target, void *_detour );
 		bool Create( const std::wstring &module, const std::string &_target, void *_detour );
 		bool Destroy( );
