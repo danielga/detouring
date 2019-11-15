@@ -42,22 +42,53 @@ namespace Detouring
 	class Hook
 	{
 	public:
+		class Target
+		{
+		public:
+			Target( );
+			Target( void *target );
+			Target( const char *target );
+			Target( const std::string &target );
+
+			bool IsValid( ) const;
+			bool IsPointer( ) const;
+			bool IsName( ) const;
+
+			void *GetPointer( ) const;
+			const std::string &GetName( ) const;
+
+		protected:
+			bool is_pointer = true;
+			void *target_pointer = nullptr;
+			std::string target_name;
+		};
+
+		class Module : public Target
+		{
+		public:
+			Module( );
+			Module( void *target );
+			Module( const char *target );
+			Module( const wchar_t *target );
+			Module( const std::string &target );
+			Module( const std::wstring &target );
+
+			const std::wstring &GetModuleName( ) const;
+
+		private:
+			std::wstring module_name;
+		};
+
 		Hook( ) = default;
-		Hook( void *_target, void *_detour );
-		Hook( const std::string &_target, void *_detour );
-		Hook( void *module, const std::string &_target, void *_detour );
-		Hook( const std::string &module, const std::string &_target, void *_detour );
-		Hook( const std::wstring &module, const std::string &_target, void *_detour );
+		Hook( const Target &target, void *detour );
+		Hook( const Module &module, const std::string &target, void *detour );
 
 		~Hook( );
 
 		bool IsValid( ) const;
 
-		bool Create( void *_target, void *_detour );
-		bool Create( const std::string &_target, void *_detour );
-		bool Create( void *module, const std::string &_target, void *_detour );
-		bool Create( const std::string &module, const std::string &_target, void *_detour );
-		bool Create( const std::wstring &module, const std::string &_target, void *_detour );
+		bool Create( const Target &target, void *detour );
+		bool Create( const Module &module, const std::string &target, void *detour );
 		bool Destroy( );
 
 		bool Enable( );
@@ -88,6 +119,9 @@ namespace Detouring
 		}
 
 	private:
+		void *FindSymbol( const std::string &symbol );
+		void *FindSymbol( void *module, const std::string &symbol );
+
 		void *target = nullptr;
 		void *detour = nullptr;
 		void *trampoline = nullptr;

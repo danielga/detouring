@@ -43,6 +43,8 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <Windows.h>
+#include <Psapi.h>
+#include <vector>
 
 #elif defined SYSTEM_POSIX
 
@@ -56,29 +58,74 @@
 
 namespace Detouring
 {
-	Hook::Hook( void *_target, void *_detour )
+	Hook::Target::Target( ) { }
+
+	Hook::Target::Target( void *target ) : target_pointer( target ) { }
+
+	Hook::Target::Target( const char *target ) :
+		is_pointer( false ), target_name( target, target + std::strlen( target ) ) { }
+
+	Hook::Target::Target( const std::string &target ) :
+		is_pointer( false ), target_name( target.begin( ), target.end( ) ) { }
+
+	bool Hook::Target::IsValid( ) const
 	{
-		Create( _target, _detour );
+		return !is_pointer || target_pointer != nullptr;
 	}
 
-	Hook::Hook( const std::string &_target, void *_detour )
+	bool Hook::Target::IsPointer( ) const
 	{
-		Create( _target, _detour );
+		return is_pointer && target_pointer != nullptr;
 	}
 
-	Hook::Hook( void *module, const std::string &_target, void *_detour )
+	bool Hook::Target::IsName( ) const
 	{
-		Create( module, _target, _detour );
+		return !is_pointer;
 	}
 
-	Hook::Hook( const std::string &module, const std::string &_target, void *_detour )
+	void *Hook::Target::GetPointer( ) const
 	{
-		Create( module, _target, _detour );
+		return target_pointer;
 	}
 
-	Hook::Hook( const std::wstring &module, const std::string &_target, void *_detour )
+	const std::string &Hook::Target::GetName( ) const
 	{
-		Create( module, _target, _detour );
+		return target_name;
+	}
+
+	Hook::Module::Module( ) { }
+
+	Hook::Module::Module( void *target ) : Target( target ) { }
+
+	Hook::Module::Module( const char *target ) :
+		Target( target ), module_name( target_name.begin( ), target_name.end( ) ) { }
+
+	Hook::Module::Module( const wchar_t *target ) : module_name( target )
+	{
+		is_pointer = false;
+	}
+
+	Hook::Module::Module( const std::string &target ) :
+		Target( target ), module_name( target.begin( ), target.end( ) ) { }
+
+	Hook::Module::Module( const std::wstring &target ) : module_name( target )
+	{
+		is_pointer = false;
+	}
+
+	const std::wstring &Hook::Module::GetModuleName( ) const
+	{
+		return module_name;
+	}
+
+	Hook::Hook( const Target &target, void *detour )
+	{
+		Create( target, detour );
+	}
+
+	Hook::Hook( const Module &module, const std::string &target, void *detour )
+	{
+		Create( module, target, detour );
 	}
 
 	Hook::~Hook( )
@@ -91,15 +138,25 @@ namespace Detouring
 		return target != nullptr && detour != nullptr;
 	}
 
-	bool Hook::Create( void *_target, void *_detour )
+	bool Hook::Create( const Target &_target, void *_detour )
 	{
-		if( _target == nullptr || _detour == nullptr )
+		if( !_target.IsValid( ) || _detour == nullptr )
 			return false;
 
 		Initialize( );
-		if( MH_CreateHook( _target, _detour, &trampoline ) == MH_OK )
+
+		void *pointer = nullptr;
+		if( _target.IsPointer( ) )
+			pointer = _target.GetPointer( );
+		else
+			pointer = FindSymbol( _target.GetName( ) );
+
+		if( pointer == nullptr )
+			return false;
+
+		if( MH_CreateHook( pointer, _detour, &trampoline ) == MH_OK )
 		{
-			target = _target;
+			target = pointer;
 			detour = _detour;
 			return true;
 		}
@@ -107,44 +164,23 @@ namespace Detouring
 		return false;
 	}
 
-	bool Hook::Create( const std::string &_target, void *_detour )
+	bool Hook::Create( const Module &module, const std::string &_target, void *_detour )
 	{
-		return Create( nullptr, _target, _detour );
-	}
-
-	bool Hook::Create( void *module, const std::string &_target, void *_detour )
-	{
-		if( _target.empty( ) )
+		if( !module.IsValid( ) || _target.empty( ) )
 			return false;
 
-#if defined SYSTEM_WINDOWS
+		if( module.IsPointer( ) )
+		{
+			void *pointer = FindSymbol( module.GetPointer( ), _target.c_str( ) );
+			return pointer != nullptr ? Create( pointer, _detour ) : false;
+		}
 
-		void *temp_target = reinterpret_cast<void *>( GetProcAddress(
-			reinterpret_cast<HMODULE>( module ), _target.c_str( )
-		) );
-
-#elif defined SYSTEM_POSIX
-
-		void *temp_target = dlsym( module != nullptr ? module : RTLD_DEFAULT, _target.c_str( ) );
-		
-#endif
-
-		return Create( temp_target, _detour );
-	}
-
-	bool Hook::Create( const std::string &module, const std::string &_target, void *_detour )
-	{
-		const std::wstring wmodule { module.begin( ), module.end( ) };
-		return Create( wmodule, _target, _detour );
-	}
-
-	bool Hook::Create( const std::wstring &module, const std::string &_target, void *_detour )
-	{
-		if( module.empty( ) || _target.empty( ) || _detour == nullptr )
+		if( _detour == nullptr )
 			return false;
 
 		Initialize( );
-		if( MH_CreateHookApiEx( module.c_str( ), _target.c_str( ), _detour, &trampoline, &target ) == MH_OK )
+
+		if( MH_CreateHookApiEx( module.GetModuleName( ).c_str( ), _target.c_str( ), _detour, &trampoline, &target ) == MH_OK )
 		{
 			detour = _detour;
 			return true;
@@ -190,5 +226,59 @@ namespace Detouring
 	void *Hook::GetTrampoline( ) const
 	{
 		return trampoline;
+	}
+
+	void *Hook::FindSymbol( const std::string &symbol )
+	{
+
+#if defined SYSTEM_WINDOWS
+
+		std::vector<HMODULE> modules( 256 );
+		size_t size = modules.size( ) * sizeof( HMODULE );
+		DWORD needed = 0;
+		if( !EnumProcessModules( GetCurrentProcess( ), modules.data( ), size, &needed ) )
+			return false;
+
+		if( needed > size )
+		{
+			modules.resize( needed / sizeof( HMODULE ) );
+			size = needed;
+			needed = 0;
+			if( !EnumProcessModules( GetCurrentProcess( ), modules.data( ), size, &needed ) )
+				return false;
+		}
+
+		for( HMODULE module : modules )
+		{
+			void *pointer = FindSymbol( module, symbol );
+			if( pointer != nullptr )
+				return pointer;
+		}
+
+		return nullptr;
+
+#elif defined SYSTEM_POSIX
+
+		return dlsym( RTLD_DEFAULT, symbol.c_str( ) );
+		
+#endif
+
+	}
+
+	void *Hook::FindSymbol( void *module, const std::string &symbol )
+	{
+
+#if defined SYSTEM_WINDOWS
+
+		return reinterpret_cast<void *>( GetProcAddress(
+			reinterpret_cast<HMODULE>( module ), symbol.c_str( )
+		) );
+
+#elif defined SYSTEM_POSIX
+
+		return dlsym( module, _target.c_str( ) );
+		
+#endif
+
 	}
 }
