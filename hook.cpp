@@ -38,6 +38,8 @@
 #include "platform.hpp"
 #include "minhook/include/minhook.h"
 
+#include <cstring>
+
 #if defined SYSTEM_WINDOWS
 
 #define WIN32_LEAN_AND_MEAN
@@ -118,14 +120,14 @@ namespace Detouring
 		return module_name;
 	}
 
-	Hook::Hook( const Target &target, void *detour )
+	Hook::Hook( const Target &_target, void *_detour )
 	{
-		Create( target, detour );
+		Create( _target, _detour );
 	}
 
-	Hook::Hook( const Module &module, const std::string &target, void *detour )
+	Hook::Hook( const Module &module, const std::string &_target, void *_detour )
 	{
-		Create( module, target, detour );
+		Create( module, _target, _detour );
 	}
 
 	Hook::~Hook( )
@@ -276,7 +278,7 @@ namespace Detouring
 
 #elif defined SYSTEM_POSIX
 
-		return dlsym( module, _target.c_str( ) );
+		return dlsym( module, symbol.c_str( ) );
 		
 #endif
 
