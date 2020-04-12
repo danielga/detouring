@@ -236,7 +236,7 @@ namespace Detouring
 #if defined SYSTEM_WINDOWS
 
 		std::vector<HMODULE> modules( 256 );
-		size_t size = modules.size( ) * sizeof( HMODULE );
+		DWORD size = static_cast<DWORD>( modules.size( ) * sizeof( HMODULE ) );
 		DWORD needed = 0;
 		if( !EnumProcessModules( GetCurrentProcess( ), modules.data( ), size, &needed ) )
 			return false;
