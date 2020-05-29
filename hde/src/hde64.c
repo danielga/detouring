@@ -7,8 +7,8 @@
 
 #include <stdint.h>
 #include <string.h>
-#include "../include/hde64.h"
-#include "../include/table64.h"
+#include "hde/hde64.h"
+#include "hde/table64.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable:4701 4706)
