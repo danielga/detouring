@@ -7,8 +7,8 @@ group("garrysmod_common")
 		objdir("!%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}/intermediate/%{prj.name}")
 		includedirs({"include/detouring", "hde/include", "minhook/include"})
 		files({
-			"include/*.hpp",
-			"include/*.h",
+			"include/detouring/*.hpp",
+			"include/detouring/*.h",
 			"source/*.cpp",
 			"hde/include/*.h",
 			"hde/src/hde.c",
@@ -18,8 +18,8 @@ group("garrysmod_common")
 		})
 		vpaths({
 			["Header files"] = {
-				"include/*.hpp",
-				"include/*.h"
+				"include/detouring/*.hpp",
+				"include/detouring/*.h"
 			},
 			["Header files/hde"] = "hde/include/*.h",
 			["Header files/minhook"] = {
