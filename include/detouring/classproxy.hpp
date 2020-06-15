@@ -4,7 +4,7 @@
 * calls in substitute classes. Contains helpers for detouring regular
 * member functions as well.
 *------------------------------------------------------------------------
-* Copyright (c) 2017-2019, Daniel Almeida
+* Copyright (c) 2017-2020, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -133,124 +133,137 @@ namespace Detouring
 			return reinterpret_cast<Target *>( this );
 		}
 
-		template<typename RetType, typename... Args>
-		static bool IsHooked( RetType ( *original )( Target *, Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool IsHooked( RetType ( *original )( TargetClass *, Args... ) )
 		{
 			return IsHookedFunction( original );
 		}
 
-#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
+#if defined( CLASSPROXY_CALLING_CONVENTION )
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static bool IsHooked(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... )
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... )
 		)
 		{
 			return IsHookedFunction(
-				reinterpret_cast<RetType ( * )( Target *, Args... )>( original )
+				reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( original )
 			);
 		}
 
 #endif
 
-		template<typename RetType, typename... Args>
-		static bool IsHooked( RetType ( Target::*original )( Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool IsHooked( RetType ( TargetClass::*original )( Args... ) )
 		{
 			return IsHookedMember( original );
 		}
 
-		template<typename RetType, typename... Args>
-		static bool IsHooked( RetType ( Target::*original )( Args... ) const )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool IsHooked( RetType ( TargetClass::*original )( Args... ) const )
 		{
 			return IsHookedMember(
-				reinterpret_cast<RetType ( Target::* )( Args... )>( original )
+				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( original )
 			);
 		}
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static bool Hook(
-			RetType ( *original )( Target *, Args... ),
+			RetType ( *original )( TargetClass *, Args... ),
 			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
 			return HookFunction( original, substitute );
 		}
 
-#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
+#if defined( CLASSPROXY_CALLING_CONVENTION )
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static bool Hook(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... ),
 			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
 			return HookFunction(
-				reinterpret_cast<RetType ( * )( Target *, Args... )>( original ),
+				reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( original ),
 				substitute
 			);
 		}
 
 #endif
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static bool Hook(
-			RetType ( Target::*original )( Args... ),
+			RetType ( TargetClass::*original )( Args... ),
 			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
 			return HookMember( original, substitute );
 		}
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static bool Hook(
-			RetType ( Target::*original )( Args... ) const,
+			RetType ( TargetClass::*original )( Args... ) const,
 			RetType ( Substitute::*substitute )( Args... ) const
 		)
 		{
 			return HookMember(
-				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
-				reinterpret_cast<RetType ( Target::* )( Args... )>( substitute )
+				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( original ),
+				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( substitute )
 			);
 		}
 
-		template<typename RetType, typename... Args>
-		static bool UnHook( RetType ( *original )( Target *, Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool UnHook( RetType ( *original )( TargetClass *, Args... ) )
 		{
 			return UnHookFunction( original );
 		}
 
-#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
+#if defined( CLASSPROXY_CALLING_CONVENTION )
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static bool UnHook(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... )
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... )
 		)
 		{
 			return UnHookFunction(
-				reinterpret_cast<RetType ( * )( Target *, Args... )>( original )
+				reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( original )
 			);
 		}
 
 #endif
 
-		template<typename RetType, typename... Args>
-		static bool UnHook( RetType ( Target::*original )( Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool UnHook( RetType ( TargetClass::*original )( Args... ) )
 		{
 			return UnHookMember( original );
 		}
 
-		template<typename RetType, typename... Args>
-		static bool UnHook( RetType ( Target::*original )( Args... ) const )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool UnHook( RetType ( TargetClass::*original )( Args... ) const )
 		{
 			return UnHookMember(
-				reinterpret_cast<RetType ( Target::* )( Args... )>( original )
+				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( original )
 			);
 		}
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static RetType Call(
 			Target *instance,
-			RetType ( *original )( Target *, Args... ),
+			RetType ( *original )( TargetClass *, Args... ),
 			Args... args
 		)
 		{
@@ -258,27 +271,28 @@ namespace Detouring
 			if( target == nullptr )
 				return RetType( );
 
-			auto method = reinterpret_cast<RetType ( * )( Target *, Args... )>( target );
+			auto method = reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( target );
 			return method( instance, std::forward<Args>( args )... );
 		}
 
-#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
+#if defined( CLASSPROXY_CALLING_CONVENTION )
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static RetType Call(
 			Target *instance,
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... ),
 			Args... args
 		)
 		{
 			void *target = CallFunctionTarget(
-				reinterpret_cast<RetType ( * )( Target *, Args... )>( original )
+				reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( original )
 			);
 			if( target == nullptr )
 				return RetType( );
 
 			auto method =
-				reinterpret_cast<RetType ( CLASSPROXY_CALLING_CONVENTION * )( Target *, Args... )>(
+				reinterpret_cast<RetType ( CLASSPROXY_CALLING_CONVENTION * )( TargetClass *, Args... )>(
 					target
 				);
 			return method( instance, std::forward<Args>( args )... );
@@ -286,79 +300,87 @@ namespace Detouring
 
 #endif
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static RetType Call(
 			Target *instance,
-			RetType ( Target::*original )( Args... ),
+			RetType ( TargetClass::*original )( Args... ),
 			Args... args
 		)
 		{
-			return CallMember<RetType, Args...>( instance, original, std::forward<Args>( args )... );
+			return CallMember<RetType, TargetClass, Args...>( instance, original, std::forward<Args>( args )... );
 		}
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static RetType Call(
 			Target *instance,
-			RetType ( Target::*original )( Args... ) const,
+			RetType ( TargetClass::*original )( Args... ) const,
 			Args... args
 		)
 		{
-			return CallMember<RetType, Args...>(
+			return CallMember<RetType, TargetClass, Args...>(
 				instance,
-				reinterpret_cast<RetType ( Target::* )( Args... )>( original ),
+				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( original ),
 				std::forward<Args>( args )...
 			);
 		}
 
-		template<typename RetType, typename... Args>
-		inline RetType Call( RetType ( *original )( Target *, Args... ), Args... args )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		inline RetType Call( RetType ( *original )( TargetClass *, Args... ), Args... args )
 		{
-			return Call<RetType, Args...>(
+			return Call<RetType, TargetClass, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
-				);
+			);
 		}
 
-#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
+#if defined( CLASSPROXY_CALLING_CONVENTION )
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		inline RetType Call(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( Target *, Args... ),
+			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... ),
 			Args... args
 		)
 		{
-			return Call<RetType, Args...>(
+			return Call<RetType, TargetClass, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
 		}
 
 #endif
 
-		template<typename RetType, typename... Args>
-		inline RetType Call( RetType ( Target::*original )( Args... ), Args... args )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		inline RetType Call( RetType ( TargetClass::*original )( Args... ), Args... args )
 		{
-			return Call<RetType, Args...>(
+			return Call<RetType, TargetClass, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
 		}
 
-		template<typename RetType, typename... Args>
-		inline RetType Call( RetType ( Target::*original )( Args... ) const, Args... args )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		inline RetType Call( RetType ( TargetClass::*original )( Args... ) const, Args... args )
 		{
-			return Call<RetType, Args...>(
+			return Call<RetType, TargetClass, Args...>(
 				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
 			);
 		}
 
-		template<typename RetType, typename... Args>
-		static Member GetTargetVirtualAddress( RetType ( Target::*method )( Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static Member GetTargetVirtualAddress( RetType ( TargetClass::*method )( Args... ) )
 		{
 			return GetVirtualAddressInternal(
 				target_cache, target_vtable, target_size, method
 			);
 		}
 
-		template<typename RetType, typename... Args>
-		static Member GetTargetVirtualAddress( RetType ( Target::*method )( Args... ) const )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static Member GetTargetVirtualAddress( RetType ( TargetClass::*method )( Args... ) const )
 		{
 			return GetVirtualAddressInternal(
 				target_cache, target_vtable, target_size, method
@@ -388,14 +410,16 @@ namespace Detouring
 		}
 
 	private:
-		template<typename RetType, typename... Args>
-		static bool IsHookedFunction( RetType ( *original )( Target *, Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool IsHookedFunction( RetType ( *original )( TargetClass *, Args... ) )
 		{
 			return hooks.find( reinterpret_cast<void *>( original ) ) != hooks.end( );
 		}
 
-		template<typename RetType, typename... Args>
-		static bool IsHookedMember( RetType ( Target::*original )( Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool IsHookedMember( RetType ( TargetClass::*original )( Args... ) )
 		{
 			auto it = hooks.find( GetAddress( original ) );
 			if( it != hooks.end( ) )
@@ -408,9 +432,10 @@ namespace Detouring
 			return target_vtable[vtarget.index] != original_vtable[vtarget.index];
 		}
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static bool HookFunction(
-			RetType ( *original )( Target *, Args... ),
+			RetType ( *original )( TargetClass *, Args... ),
 			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
@@ -436,9 +461,10 @@ namespace Detouring
 			return hook.Enable( );
 		}
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static bool HookMember(
-			RetType ( Target::*original )( Args... ),
+			RetType ( TargetClass::*original )( Args... ),
 			RetType ( Substitute::*substitute )( Args... )
 		)
 		{
@@ -481,8 +507,9 @@ namespace Detouring
 			return hook.Enable( );
 		}
 
-		template<typename RetType, typename... Args>
-		static bool UnHookFunction( RetType ( *original )( Target *, Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool UnHookFunction( RetType ( *original )( TargetClass *, Args... ) )
 		{
 			auto it = hooks.find( reinterpret_cast<void *>( original ) );
 			if( it != hooks.end( ) )
@@ -494,8 +521,9 @@ namespace Detouring
 			return false;
 		}
 
-		template<typename RetType, typename... Args>
-		static bool UnHookMember( RetType ( Target::*original )( Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static bool UnHookMember( RetType ( TargetClass::*original )( Args... ) )
 		{
 			auto it = hooks.find( GetAddress( original ) );
 			if( it != hooks.end( ) )
@@ -519,8 +547,9 @@ namespace Detouring
 			return true;
 		}
 
-		template<typename RetType, typename... Args>
-		static void *CallFunctionTarget( RetType ( *original )( Target *, Args... ) )
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
+		static void *CallFunctionTarget( RetType ( *original )( TargetClass *, Args... ) )
 		{
 			void *address = reinterpret_cast<void *>( original ), *target = nullptr;
 
@@ -534,10 +563,11 @@ namespace Detouring
 			return target;
 		}
 
-		template<typename RetType, typename... Args>
+		template<typename RetType, typename TargetClass, typename... Args,
+			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
 		static RetType CallMember(
 			Target *instance,
-			RetType ( Target::*original )( Args... ),
+			RetType ( TargetClass::*original )( Args... ),
 			Args... args
 		)
 		{
@@ -580,7 +610,7 @@ namespace Detouring
 				const size_t offset = 0;
 				const size_t unused[2] = { 0, 0 };
 			} func = { target.address };
-			auto typedfunc = reinterpret_cast<RetType ( Target::** )( Args... )>( &func );
+			auto typedfunc = reinterpret_cast<RetType ( TargetClass::** )( Args... )>( &func );
 			return ( instance->**typedfunc )( std::forward<Args>( args )... );
 		}
 
