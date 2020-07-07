@@ -16,7 +16,7 @@ function IncludeDetouring()
 		links("CoreServices.framework")
 
 	if refcount == 1 then
-		include(current_dir .. "/premake5_create_project.lua")
+		dofile(current_dir .. "/premake5_create_project.lua")
 	end
 
 	project(_project.name)
