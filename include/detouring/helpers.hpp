@@ -107,16 +107,23 @@ namespace Detouring
 
 		void *address = *reinterpret_cast<void **>( pmethod );
 
+#elif defined( ARCHITECTURE_X86_64 )
+
+		(void)pmethod;
+		void *address = reinterpret_cast<void *>( method );
+
 #else
 
 		void *address = reinterpret_cast<void *>( pmethod );
 
 #endif
 
+#ifndef ARCHITECTURE_X86_64
 		// Check whether the function starts with a relative far jump and assume a debug compilation thunk
 		uint8_t *method_code = reinterpret_cast<uint8_t *>( address );
 		if( method_code[0] == 0xE9 )
 			address = method_code + 5 + *reinterpret_cast<int32_t *>( method_code + 1 );
+#endif
 
 		return address;
 	}
