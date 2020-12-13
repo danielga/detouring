@@ -261,7 +261,7 @@ namespace Detouring
 
 #elif defined SYSTEM_POSIX
 
-		return dlsym( RTLD_NEXT, symbol.c_str( ) );
+		return dlsym( RTLD_DEFAULT, symbol.c_str( ) );
 
 #endif
 
