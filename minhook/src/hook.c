@@ -877,6 +877,39 @@ MH_STATUS MH_API MH_RemoveHook(void *pTarget)
 }
 
 //-------------------------------------------------------------------------
+MH_STATUS MH_API MH_IsHookEnabled(void *pTarget)
+{
+    MH_STATUS status = MH_OK;
+
+    EnterSpinLock();
+
+#ifdef _WIN32
+    if (g_hHeap != NULL)
+    {
+#endif
+        uint32_t pos = FindHookEntry(pTarget);
+        if (pos != INVALID_HOOK_POS)
+        {
+            status = g_hooks.pItems[pos].isEnabled ? MH_HOOK_ENABLED : MH_HOOK_DISABLED;
+        }
+        else
+        {
+            status = MH_ERROR_NOT_CREATED;
+        }
+#ifdef _WIN32
+    }
+    else
+    {
+        status = MH_ERROR_NOT_INITIALIZED;
+    }
+#endif
+
+    LeaveSpinLock();
+
+    return status;
+}
+
+//-------------------------------------------------------------------------
 static MH_STATUS EnableHook(void *pTarget, bool enable)
 {
     MH_STATUS status = MH_OK;

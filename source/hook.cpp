@@ -205,6 +205,11 @@ namespace Detouring
 		return true;
 	}
 
+	bool Hook::IsEnabled( ) const
+	{
+		return MH_IsHookEnabled( target ) == MH_HOOK_ENABLED;
+	}
+
 	bool Hook::Enable( )
 	{
 		return MH_EnableHook( target ) == MH_OK;

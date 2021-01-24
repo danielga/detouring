@@ -91,6 +91,7 @@ namespace Detouring
 		bool Create( const Module &module, const std::string &target, void *detour );
 		bool Destroy( );
 
+		bool IsEnabled( ) const;
 		bool Enable( );
 		bool Disable( );
 
