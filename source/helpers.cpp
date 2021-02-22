@@ -93,19 +93,17 @@ namespace Detouring
 	{
 		address = nullptr;
 		index = static_cast<size_t>( ~0 );
-		type = Type::Unknown;
 	}
 
-	Member::Member( size_t idx, void *addr, Type t )
+	Member::Member( size_t idx, void *addr )
 	{
 		address = addr;
 		index = idx;
-		type = t;
 	}
 
 	bool Member::IsValid( ) const
 	{
-		return type != Type::Unknown;
+		return address != nullptr;
 	}
 
 	int32_t GetMemoryProtection( void *address )

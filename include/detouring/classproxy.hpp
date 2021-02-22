@@ -40,17 +40,13 @@
 #include "hook.hpp"
 #include "helpers.hpp"
 #include "platform.hpp"
+
 #include <cstdint>
 #include <cstddef>
 #include <vector>
 #include <unordered_map>
 #include <utility>
-
-#if defined( COMPILER_VC ) && defined( ARCHITECTURE_X86 )
-
-#define CLASSPROXY_CALLING_CONVENTION __thiscall
-
-#endif
+#include <memory>
 
 namespace Detouring
 {
@@ -61,66 +57,19 @@ namespace Detouring
 	class ClassProxy
 	{
 	protected:
-		ClassProxy( )
-		{ }
+		ClassProxy( ) = default;
 
-		ClassProxy( Target *instance )
+		ClassProxy( Target *instance ) : state( shared_state )
 		{
 			Initialize( instance );
 		}
 
-		virtual ~ClassProxy( )
-		{
-			if( target_vtable != nullptr && target_size != 0 )
-			{
-				ProtectMemory( target_vtable, target_size * sizeof( void * ), false );
-
-				void **vtable = target_vtable;
-				for(
-					auto it = original_vtable.begin( );
-					it != original_vtable.end( );
-					++vtable, ++it
-				)
-					if( *vtable != *it )
-						*vtable = *it;
-
-				ProtectMemory( target_vtable, target_size * sizeof( void * ), true );
-			}
-		}
+		virtual ~ClassProxy( ) = default;
 
 	public:
 		static bool Initialize( Target *instance, Substitute *substitute )
 		{
-			if( target_vtable != nullptr )
-				return true;
-
-			target_vtable = GetVirtualTable( instance );
-			if( target_vtable == nullptr )
-				return false;
-
-			std::vector<void *> ovtable;
-			for( void **vtable = target_vtable; ovtable.size( ) < ovtable.max_size( ) && *vtable != nullptr; ++vtable )
-			{
-				if( !IsExecutableAddress( *vtable ) )
-					break;
-
-				ovtable.push_back( *vtable );
-			}
-
-			if( ovtable.empty( ) )
-			{
-				target_vtable = nullptr;
-				return false;
-			}
-
-			original_vtable = std::move( ovtable );
-			target_size = original_vtable.size( );
-
-			substitute_vtable = GetVirtualTable( substitute );
-
-			for( ; substitute_vtable[substitute_size] != nullptr; ++substitute_size );
-
-			return true;
+			return shared_state->Initialize( instance, substitute );
 		}
 
 		inline bool Initialize( Target *instance )
@@ -133,354 +82,93 @@ namespace Detouring
 			return reinterpret_cast<Target *>( this );
 		}
 
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool IsHooked( RetType ( *original )( TargetClass *, Args... ) )
+		template<
+			typename Definition,
+			typename Traits = FunctionTraits<Definition>,
+			std::enable_if_t<!Traits::IsMemberFunctionPointer, int> = 0
+		>
+		static bool IsHooked( Definition original )
 		{
-			return IsHookedFunction( original );
+			return shared_state->hooks.find( reinterpret_cast<void *>( original ) ) != shared_state->hooks.end( );
 		}
 
-#if defined( CLASSPROXY_CALLING_CONVENTION )
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool IsHooked(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... )
-		)
+		template<
+			typename Definition,
+			typename Traits = FunctionTraits<Definition>,
+			std::enable_if_t<Traits::IsMemberFunctionPointer, int> = 0
+		>
+		static bool IsHooked( Definition original )
 		{
-			return IsHookedFunction(
-				reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( original )
-			);
-		}
-
-#endif
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool IsHooked( RetType ( TargetClass::*original )( Args... ) )
-		{
-			return IsHookedMember( original );
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool IsHooked( RetType ( TargetClass::*original )( Args... ) const )
-		{
-			return IsHookedMember(
-				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( original )
-			);
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool Hook(
-			RetType ( *original )( TargetClass *, Args... ),
-			RetType ( Substitute::*substitute )( Args... )
-		)
-		{
-			return HookFunction( original, substitute );
-		}
-
-#if defined( CLASSPROXY_CALLING_CONVENTION )
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool Hook(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... ),
-			RetType ( Substitute::*substitute )( Args... )
-		)
-		{
-			return HookFunction(
-				reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( original ),
-				substitute
-			);
-		}
-
-#endif
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool Hook(
-			RetType ( TargetClass::*original )( Args... ),
-			RetType ( Substitute::*substitute )( Args... )
-		)
-		{
-			return HookMember( original, substitute );
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool Hook(
-			RetType ( TargetClass::*original )( Args... ) const,
-			RetType ( Substitute::*substitute )( Args... ) const
-		)
-		{
-			return HookMember(
-				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( original ),
-				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( substitute )
-			);
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool UnHook( RetType ( *original )( TargetClass *, Args... ) )
-		{
-			return UnHookFunction( original );
-		}
-
-#if defined( CLASSPROXY_CALLING_CONVENTION )
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool UnHook(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... )
-		)
-		{
-			return UnHookFunction(
-				reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( original )
-			);
-		}
-
-#endif
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool UnHook( RetType ( TargetClass::*original )( Args... ) )
-		{
-			return UnHookMember( original );
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool UnHook( RetType ( TargetClass::*original )( Args... ) const )
-		{
-			return UnHookMember(
-				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( original )
-			);
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static RetType Call(
-			Target *instance,
-			RetType ( *original )( TargetClass *, Args... ),
-			Args... args
-		)
-		{
-			void *target = CallFunctionTarget( original );
-			if( target == nullptr )
-				return RetType( );
-
-			auto method = reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( target );
-			return method( instance, std::forward<Args>( args )... );
-		}
-
-#if defined( CLASSPROXY_CALLING_CONVENTION )
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static RetType Call(
-			Target *instance,
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... ),
-			Args... args
-		)
-		{
-			void *target = CallFunctionTarget(
-				reinterpret_cast<RetType ( * )( TargetClass *, Args... )>( original )
-			);
-			if( target == nullptr )
-				return RetType( );
-
-			auto method =
-				reinterpret_cast<RetType ( CLASSPROXY_CALLING_CONVENTION * )( TargetClass *, Args... )>(
-					target
-				);
-			return method( instance, std::forward<Args>( args )... );
-		}
-
-#endif
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static RetType Call(
-			Target *instance,
-			RetType ( TargetClass::*original )( Args... ),
-			Args... args
-		)
-		{
-			return CallMember<RetType, TargetClass, Args...>( instance, original, std::forward<Args>( args )... );
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static RetType Call(
-			Target *instance,
-			RetType ( TargetClass::*original )( Args... ) const,
-			Args... args
-		)
-		{
-			return CallMember<RetType, TargetClass, Args...>(
-				instance,
-				reinterpret_cast<RetType ( TargetClass::* )( Args... )>( original ),
-				std::forward<Args>( args )...
-			);
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		inline RetType Call( RetType ( *original )( TargetClass *, Args... ), Args... args )
-		{
-			return Call<RetType, TargetClass, Args...>(
-				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
-			);
-		}
-
-#if defined( CLASSPROXY_CALLING_CONVENTION )
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		inline RetType Call(
-			RetType ( CLASSPROXY_CALLING_CONVENTION *original )( TargetClass *, Args... ),
-			Args... args
-		)
-		{
-			return Call<RetType, TargetClass, Args...>(
-				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
-			);
-		}
-
-#endif
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		inline RetType Call( RetType ( TargetClass::*original )( Args... ), Args... args )
-		{
-			return Call<RetType, TargetClass, Args...>(
-				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
-			);
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		inline RetType Call( RetType ( TargetClass::*original )( Args... ) const, Args... args )
-		{
-			return Call<RetType, TargetClass, Args...>(
-				reinterpret_cast<Target *>( this ), original, std::forward<Args>( args )...
-			);
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static Member GetTargetVirtualAddress( RetType ( TargetClass::*method )( Args... ) )
-		{
-			return GetVirtualAddressInternal(
-				target_cache, target_vtable, target_size, method
-			);
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static Member GetTargetVirtualAddress( RetType ( TargetClass::*method )( Args... ) const )
-		{
-			return GetVirtualAddressInternal(
-				target_cache, target_vtable, target_size, method
-			);
-		}
-
-		template<typename RetType, typename... Args>
-		static Member GetSubstituteVirtualAddress( RetType ( Substitute::*method )( Args... ) )
-		{
-			return GetVirtualAddressInternal(
-				substitute_cache,
-				substitute_vtable,
-				substitute_size,
-				method
-			);
-		}
-
-		template<typename RetType, typename... Args>
-		static Member GetSubstituteVirtualAddress( RetType ( Substitute::*method )( Args... ) const )
-		{
-			return GetVirtualAddressInternal(
-				substitute_cache,
-				substitute_vtable,
-				substitute_size,
-				method
-			);
-		}
-
-	private:
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool IsHookedFunction( RetType ( *original )( TargetClass *, Args... ) )
-		{
-			return hooks.find( reinterpret_cast<void *>( original ) ) != hooks.end( );
-		}
-
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool IsHookedMember( RetType ( TargetClass::*original )( Args... ) )
-		{
-			auto it = hooks.find( GetAddress( original ) );
-			if( it != hooks.end( ) )
+			auto it = shared_state->hooks.find( GetAddress( original ) );
+			if( it != shared_state->hooks.end( ) )
 				return true;
 
-			Member vtarget = GetTargetVirtualAddress( original );
+			Member vtarget = GetVirtualAddress( shared_state->target_vtable, original );
 			if( !vtarget.IsValid( ) )
 				return false;
 
-			return target_vtable[vtarget.index] != original_vtable[vtarget.index];
+			return shared_state->target_vtable.pointer[vtarget.index] != shared_state->original_vtable[vtarget.index];
 		}
 
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool HookFunction(
-			RetType ( *original )( TargetClass *, Args... ),
-			RetType ( Substitute::*substitute )( Args... )
+		template<
+			typename DefinitionOriginal,
+			typename DefinitionSubstitute,
+			typename TraitsOriginal = FunctionTraits<DefinitionOriginal>,
+			typename = FunctionTraits<DefinitionSubstitute>,
+			std::enable_if_t<!TraitsOriginal::IsMemberFunctionPointer, int> = 0
+		>
+		static bool Hook(
+			DefinitionOriginal original,
+			DefinitionSubstitute substitute
 		)
 		{
 			void *address = reinterpret_cast<void *>( original );
 			if( address == nullptr )
 				return false;
 
-			auto it = hooks.find( address );
-			if( it != hooks.end( ) )
+			auto it = shared_state->hooks.find( address );
+			if( it != shared_state->hooks.end( ) )
 				return true;
 
 			void *subst = GetAddress( substitute );
 			if( subst == nullptr )
 				return false;
 
-			Detouring::Hook &hook = hooks[address];
+			Detouring::Hook &hook = shared_state->hooks[address];
 			if( !hook.Create( address, subst ) )
 			{
-				hooks.erase( address );
+				shared_state->hooks.erase( address );
 				return false;
 			}
 
 			return hook.Enable( );
 		}
 
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool HookMember(
-			RetType ( TargetClass::*original )( Args... ),
-			RetType ( Substitute::*substitute )( Args... )
+		template<
+			typename DefinitionOriginal,
+			typename DefinitionSubstitute,
+			typename TraitsOriginal = FunctionTraits<DefinitionOriginal>,
+			typename = FunctionTraits<DefinitionSubstitute>,
+			std::enable_if_t<TraitsOriginal::IsMemberFunctionPointer, int> = 0
+		>
+		static bool Hook(
+			DefinitionOriginal original,
+			DefinitionSubstitute substitute
 		)
 		{
-			Member target = GetTargetVirtualAddress( original );
+			Member target = GetVirtualAddress( shared_state->target_vtable, original );
 			if( target.IsValid( ) )
 			{
-				if( target_vtable[target.index] != original_vtable[target.index] )
+				if( shared_state->target_vtable.pointer[target.index] != shared_state->original_vtable[target.index] )
 					return true;
 
-				Member subst = GetSubstituteVirtualAddress( substitute );
+				Member subst = GetVirtualAddress( shared_state->substitute_vtable, substitute );
 				if( !subst.IsValid( ) )
 					return false;
 
-				ProtectMemory( target_vtable + target.index, sizeof( void * ), false );
-				target_vtable[target.index] = subst.address;
-				ProtectMemory( target_vtable + target.index, sizeof( void * ), true );
+				ProtectMemory( shared_state->target_vtable.pointer + target.index, sizeof( void * ), false );
+				shared_state->target_vtable.pointer[target.index] = subst.address;
+				ProtectMemory( shared_state->target_vtable.pointer + target.index, sizeof( void * ), true );
 
 				return true;
 			}
@@ -489,177 +177,251 @@ namespace Detouring
 			if( address == nullptr )
 				return false;
 
-			auto it = hooks.find( address );
-			if( it != hooks.end( ) )
+			auto it = shared_state->hooks.find( address );
+			if( it != shared_state->hooks.end( ) )
 				return true;
 
 			void *subst = GetAddress( substitute );
 			if( subst == nullptr )
 				return false;
 
-			Detouring::Hook &hook = hooks[address];
+			Detouring::Hook &hook = shared_state->hooks[address];
 			if( !hook.Create( address, subst ) )
 			{
-				hooks.erase( address );
+				shared_state->hooks.erase( address );
 				return false;
 			}
 
 			return hook.Enable( );
 		}
 
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool UnHookFunction( RetType ( *original )( TargetClass *, Args... ) )
+		template<
+			typename Definition,
+			typename Traits = FunctionTraits<Definition>,
+			std::enable_if_t<!Traits::IsMemberFunctionPointer, int> = 0
+		>
+		static bool UnHook( Definition original )
 		{
-			auto it = hooks.find( reinterpret_cast<void *>( original ) );
-			if( it != hooks.end( ) )
+			auto it = shared_state->hooks.find( reinterpret_cast<void *>( original ) );
+			if( it != shared_state->hooks.end( ) )
 			{
-				hooks.erase( it );
+				shared_state->hooks.erase( it );
 				return true;
 			}
 
 			return false;
 		}
 
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static bool UnHookMember( RetType ( TargetClass::*original )( Args... ) )
+		template<
+			typename Definition,
+			typename Traits = FunctionTraits<Definition>,
+			std::enable_if_t<Traits::IsMemberFunctionPointer, int> = 0
+		>
+		static bool UnHook( Definition original )
 		{
-			auto it = hooks.find( GetAddress( original ) );
-			if( it != hooks.end( ) )
+			auto it = shared_state->hooks.find( GetAddress( original ) );
+			if( it != shared_state->hooks.end( ) )
 			{
-				hooks.erase( it );
+				shared_state->hooks.erase( it );
 				return true;
 			}
 
-			Member target = GetTargetVirtualAddress( original );
+			Member target = GetVirtualAddress( shared_state->target_vtable, original );
 			if( !target.IsValid( ) )
 				return false;
 
-			void *vfunction = original_vtable[target.index];
-			if( target_vtable[target.index] == vfunction )
+			void *vfunction = shared_state->original_vtable[target.index];
+			if( shared_state->target_vtable.pointer[target.index] == vfunction )
 				return false;
 
-			ProtectMemory( target_vtable + target.index, sizeof( void * ), false );
-			target_vtable[target.index] = vfunction;
-			ProtectMemory( target_vtable + target.index, sizeof( void * ), true );
+			ProtectMemory( shared_state->target_vtable.pointer + target.index, sizeof( void * ), false );
+			shared_state->target_vtable.pointer[target.index] = vfunction;
+			ProtectMemory( shared_state->target_vtable.pointer + target.index, sizeof( void * ), true );
 
 			return true;
 		}
 
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static void *CallFunctionTarget( RetType ( *original )( TargetClass *, Args... ) )
+		template<
+			typename Definition,
+			typename... Args,
+			typename Traits = FunctionTraits<Definition>,
+			typename ReturnType = typename Traits::ReturnType,
+			std::enable_if_t<!Traits::IsMemberFunctionPointer, int> = 0
+		>
+		static ReturnType Call(
+			Target *instance,
+			Definition original,
+			Args &&... args
+		)
 		{
 			void *address = reinterpret_cast<void *>( original ), *target = nullptr;
-
-			auto it = hooks.find( address );
-			if( it != hooks.end( ) )
-				target = ( *it ).second.GetTrampoline( );
+			const auto it = shared_state->hooks.find( address );
+			if( it != shared_state->hooks.end( ) )
+				target = it->second.GetTrampoline( );
 
 			if( target == nullptr )
 				target = address;
 
-			return target;
+			if( target == nullptr )
+				return ReturnType( );
+
+			auto method = reinterpret_cast<Definition>( target );
+			return method( instance, std::forward<Args>( args )... );
 		}
 
-		template<typename RetType, typename TargetClass, typename... Args,
-			typename = std::enable_if_t<std::is_base_of_v<TargetClass, Target>>>
-		static RetType CallMember(
+		template<
+			typename Definition,
+			typename... Args,
+			typename Traits = FunctionTraits<Definition>,
+			typename ReturnType = typename Traits::ReturnType,
+			std::enable_if_t<Traits::IsMemberFunctionPointer, int> = 0
+		>
+		static ReturnType Call(
 			Target *instance,
-			RetType ( TargetClass::*original )( Args... ),
-			Args... args
+			Definition original,
+			Args &&... args
 		)
 		{
-			Member target;
 			void *address = GetAddress( original );
-			auto it = hooks.find( address );
-			if( it != hooks.end( ) )
+			void *final_address = nullptr;
+			auto it = shared_state->hooks.find( address );
+			if( it != shared_state->hooks.end( ) )
+				final_address = it->second.GetTrampoline( );
+
+			if( final_address == nullptr )
 			{
-				void *trampoline = ( *it ).second.GetTrampoline( );
-				if( trampoline != nullptr )
-				{
-					target.address = trampoline;
-					target.index = 0;
-					target.type = Member::Type::NonVirtual;
-				}
+				Member member = GetVirtualAddress( shared_state->target_vtable, original );
+				if( member.IsValid( ) )
+					final_address = shared_state->original_vtable[member.index];
 			}
 
-			if( !target.IsValid( ) )
+			if( final_address == nullptr )
 			{
-				target = GetTargetVirtualAddress( original );
-				if( target.IsValid( ) )
-					target.address = original_vtable[target.index];
-			}
+				if( address == nullptr )
+					return ReturnType( );
 
-			if( !target.IsValid( ) )
-			{
-				if( address != nullptr )
-				{
-					target.address = address;
-					target.index = 0;
-					target.type = Member::Type::NonVirtual;
-				}
-				else
-					return RetType( );
+				final_address = address;
 			}
 
 			struct CallMagic
 			{
-				void *address = nullptr;
+				const void *address = nullptr;
 				const size_t offset = 0;
 				const size_t unused[2] = { 0, 0 };
-			} func = { target.address };
-			auto typedfunc = reinterpret_cast<RetType ( TargetClass::** )( Args... )>( &func );
+			} func = { final_address };
+			auto typedfunc = reinterpret_cast<Definition *>( &func );
 			return ( instance->**typedfunc )( std::forward<Args>( args )... );
 		}
 
-		// can be used with interfaces and implementations
-		template<typename RetType, typename Class, typename... Args>
-		static Member GetVirtualAddressInternal(
-			CacheMap &cache,
-			void **vtable,
-			size_t size,
-			RetType ( Class::*method )( Args... )
+		template<
+			typename Definition,
+			typename... Args,
+			typename Traits = FunctionTraits<Definition>,
+			typename ReturnType = typename Traits::ReturnType
+		>
+		inline ReturnType Call( Definition original, Args &&... args )
+		{
+			return Call( This( ), original, std::forward<Args>( args )... );
+		}
+
+	private:
+		struct VTable
+		{
+			size_t size = 0;
+			void **pointer = nullptr;
+			CacheMap cache;
+		};
+
+		template<
+			typename Definition,
+			typename Traits = FunctionTraits<Definition>,
+			std::enable_if_t<Traits::IsMemberFunctionPointer, int> = 0
+		>
+		static Member GetVirtualAddress(
+			VTable &vtable,
+			Definition method
 		)
 		{
 			void *member = GetAddress( method );
-			auto it = cache.find( member );
-			if( it != cache.end( ) )
-				return ( *it ).second;
+			auto it = vtable.cache.find( member );
+			if( it != vtable.cache.end( ) )
+				return it->second;
 
-			Member address = GetVirtualAddress( vtable, size, method );
+			Member address = Detouring::GetVirtualAddress( vtable.pointer, vtable.size, method );
 
 			if( address.IsValid( ) )
-				cache[member] = address;
+				vtable.cache[member] = address;
 
 			return address;
 		}
 
-		static size_t target_size;
-		static void **target_vtable;
-		static CacheMap target_cache;
-		static std::vector<void *> original_vtable;
-		static size_t substitute_size;
-		static void **substitute_vtable;
-		static CacheMap substitute_cache;
-		static HookMap hooks;
+		class SharedState
+		{
+		public:
+			~SharedState( )
+			{
+				if( target_vtable.pointer == nullptr || target_vtable.size == 0 )
+					return;
+
+				ProtectMemory( target_vtable.pointer, target_vtable.size * sizeof( void * ), false );
+
+				void **vtable = target_vtable.pointer;
+				for(
+					auto it = original_vtable.begin( );
+					it != original_vtable.end( );
+					++vtable, ++it
+					)
+					if( *vtable != *it )
+						*vtable = *it;
+
+				ProtectMemory( target_vtable.pointer, target_vtable.size * sizeof( void * ), true );
+			}
+
+			bool Initialize( Target *instance, Substitute *substitute )
+			{
+				if( target_vtable.pointer != nullptr )
+					return true;
+
+				target_vtable.pointer = GetVirtualTable( instance );
+				if( target_vtable.pointer == nullptr )
+					return false;
+
+				std::vector<void *> ovtable;
+				for( void **vtable = target_vtable.pointer; ovtable.size( ) < ovtable.max_size( ) && *vtable != nullptr; ++vtable )
+				{
+					if( !IsExecutableAddress( *vtable ) )
+						break;
+
+					ovtable.push_back( *vtable );
+				}
+
+				if( ovtable.empty( ) )
+				{
+					target_vtable.pointer = nullptr;
+					return false;
+				}
+
+				original_vtable = std::move( ovtable );
+				target_vtable.size = original_vtable.size( );
+
+				substitute_vtable.pointer = GetVirtualTable( substitute );
+
+				for( ; substitute_vtable.pointer[substitute_vtable.size] != nullptr; ++substitute_vtable.size );
+
+				return true;
+			}
+
+			VTable target_vtable;
+			std::vector<void *> original_vtable;
+			VTable substitute_vtable;
+			HookMap hooks;
+		};
+		static std::shared_ptr<SharedState> shared_state;
+
+		std::shared_ptr<SharedState> state = shared_state;
 	};
 
 	template<typename Target, typename Substitute>
-	size_t ClassProxy<Target, Substitute>::target_size = 0;
-	template<typename Target, typename Substitute>
-	void **ClassProxy<Target, Substitute>::target_vtable = nullptr;
-	template<typename Target, typename Substitute>
-	CacheMap ClassProxy<Target, Substitute>::target_cache;
-	template<typename Target, typename Substitute>
-	std::vector<void *> ClassProxy<Target, Substitute>::original_vtable;
-	template<typename Target, typename Substitute>
-	size_t ClassProxy<Target, Substitute>::substitute_size = 0;
-	template<typename Target, typename Substitute>
-	void **ClassProxy<Target, Substitute>::substitute_vtable = nullptr;
-	template<typename Target, typename Substitute>
-	CacheMap ClassProxy<Target, Substitute>::substitute_cache;
-	template<typename Target, typename Substitute>
-	HookMap ClassProxy<Target, Substitute>::hooks;
+	std::shared_ptr<typename ClassProxy<Target, Substitute>::SharedState> ClassProxy<Target, Substitute>::shared_state =
+		std::make_shared < ClassProxy<Target, Substitute>::SharedState>( );
 }

@@ -44,6 +44,9 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <type_traits>
+#include <tuple>
+
 #include "platform.hpp"
 
 namespace Detouring
@@ -66,22 +69,13 @@ namespace Detouring
 
 	struct Member
 	{
-		enum class Type
-		{
-			Unknown = -1,
-			Static,
-			NonVirtual,
-			Virtual
-		};
-
 		Member( );
-		Member( size_t idx, void *addr, Type type );
+		Member( size_t idx, void *addr );
 
 		bool IsValid( ) const;
 
 		void *address;
 		size_t index;
-		Type type;
 	};
 
 	int32_t GetMemoryProtection( void *address );
@@ -98,10 +92,120 @@ namespace Detouring
 		return *reinterpret_cast<void ***>( instance );
 	}
 
-	template<typename RetType, typename Class, typename... Args>
-	inline void *GetAddress( RetType ( Class::* method )( Args... ) )
+	template<typename Definition>
+	struct FunctionTraits;
+
+#define DETOURING_MAKE_IS_POINTER_CALLABLE( CALLING_CONVENTION, NOEXCEPT )		\
+	template<typename RetType, typename... Args>								\
+	struct FunctionTraits<RetType ( CALLING_CONVENTION * )( Args... ) NOEXCEPT>	\
+	{																			\
+		typedef RetType ( CALLING_CONVENTION *Definition )( Args... ) NOEXCEPT;	\
+		static constexpr bool IsMemberFunctionPointer = false;					\
+		using TargetClass = std::tuple_element_t<0, std::tuple<Args...>>;		\
+		typedef RetType ReturnType;												\
+		typedef std::tuple<Args...> ArgTypes;									\
+	};
+
+#define DETOURING_MAKE_IS_MEMBER_CALLABLE( CALLING_CONVENTION, CONST, NOEXCEPT )				\
+	template<typename RetType, typename Class, typename... Args>								\
+	struct FunctionTraits<RetType ( CALLING_CONVENTION Class::* )( Args... ) CONST NOEXCEPT>	\
+	{																							\
+		typedef RetType ( CALLING_CONVENTION Class::*Definition )( Args... ) CONST NOEXCEPT;	\
+		static constexpr bool IsMemberFunctionPointer = true;									\
+		typedef Class TargetClass;																\
+		typedef RetType ReturnType;																\
+		typedef std::tuple<Args...> ArgTypes;													\
+	}
+
+#define DETOURING_WITH_NOEXCEPT noexcept
+#define DETOURING_WITHOUT_NOEXCEPT
+
+#define DETOURING_WITH_CONST const
+#define DETOURING_WITHOUT_CONST
+
+#define DETOURING_MAKE_IS_CALLABLE( CALLING_CONVENTION )															\
+	DETOURING_MAKE_IS_POINTER_CALLABLE( CALLING_CONVENTION, DETOURING_WITH_NOEXCEPT );								\
+	DETOURING_MAKE_IS_POINTER_CALLABLE( CALLING_CONVENTION, DETOURING_WITHOUT_NOEXCEPT );							\
+	DETOURING_MAKE_IS_MEMBER_CALLABLE( CALLING_CONVENTION, DETOURING_WITHOUT_CONST, DETOURING_WITH_NOEXCEPT );		\
+	DETOURING_MAKE_IS_MEMBER_CALLABLE( CALLING_CONVENTION, DETOURING_WITH_CONST, DETOURING_WITH_NOEXCEPT );			\
+	DETOURING_MAKE_IS_MEMBER_CALLABLE( CALLING_CONVENTION, DETOURING_WITHOUT_CONST, DETOURING_WITHOUT_NOEXCEPT );	\
+	DETOURING_MAKE_IS_MEMBER_CALLABLE( CALLING_CONVENTION, DETOURING_WITH_CONST, DETOURING_WITHOUT_NOEXCEPT );
+
+#ifdef COMPILER_VC
+
+#ifdef ARCHITECTURE_X86
+
+#define DETOURING_CDECL __cdecl
+#define DETOURING_STDCALL __stdcall
+#define DETOURING_THISCALL __thiscall
+#define DETOURING_FASTCALL __fastcall
+
+#elif defined( ARCHITECTURE_X86_64 )
+
+#define DETOURING_CDECL
+
+#endif
+
+#define DETOURING_VECTORCALL __vectorcall
+
+#elif defined( COMPILER_GNUC ) || defined( COMPILER_CLANG )
+
+#ifdef ARCHITECTURE_X86
+
+#define DETOURING_CDECL __attribute__((cdecl))
+#define DETOURING_STDCALL __attribute__((stdcall))
+#define DETOURING_THISCALL __attribute__((thiscall))
+#define DETOURING_FASTCALL __attribute__((fastcall))
+
+#elif defined( ARCHITECTURE_X86_64 )
+
+#define DETOURING_CDECL
+
+#endif
+
+#endif
+
+#ifdef DETOURING_CDECL
+	DETOURING_MAKE_IS_CALLABLE( DETOURING_CDECL );
+#endif
+
+#ifdef DETOURING_STDCALL
+	DETOURING_MAKE_IS_CALLABLE( DETOURING_STDCALL );
+#endif
+
+#ifdef DETOURING_THISCALL
+	DETOURING_MAKE_IS_CALLABLE( DETOURING_THISCALL );
+#endif
+
+#ifdef DETOURING_FASTCALL
+	DETOURING_MAKE_IS_CALLABLE( DETOURING_FASTCALL );
+#endif
+
+#ifdef DETOURING_VECTORCALL
+	DETOURING_MAKE_IS_CALLABLE( DETOURING_VECTORCALL );
+#endif
+
+#undef DETOURING_CDECL
+#undef DETOURING_STDCALL
+#undef DETOURING_THISCALL
+#undef DETOURING_FASTCALL
+#undef DETOURING_VECTORCALL
+#undef DETOURING_WITH_NOEXCEPT
+#undef DETOURING_WITHOUT_NOEXCEPT
+#undef DETOURING_WITH_CONST
+#undef DETOURING_WITHOUT_CONST
+#undef DETOURING_MAKE_IS_POINTER_CALLABLE
+#undef DETOURING_MAKE_IS_MEMBER_CALLABLE
+#undef DETOURING_MAKE_IS_CALLABLE
+
+	template<
+		typename Definition,
+		typename Traits = FunctionTraits<Definition>,
+		std::enable_if_t<Traits::IsMemberFunctionPointer, int> = 0
+	>
+	inline void *GetAddress( Definition method )
 	{
-		RetType( Class::** pmethod )( Args... ) = &method;
+		Definition *pmethod = &method;
 
 #ifdef COMPILER_VC
 
@@ -118,23 +222,25 @@ namespace Detouring
 
 #endif
 
-#ifndef ARCHITECTURE_X86_64
+#ifdef ARCHITECTURE_X86
+
 		// Check whether the function starts with a relative far jump and assume a debug compilation thunk
 		uint8_t *method_code = reinterpret_cast<uint8_t *>( address );
 		if( method_code[0] == 0xE9 )
 			address = method_code + 5 + *reinterpret_cast<int32_t *>( method_code + 1 );
+
 #endif
 
 		return address;
 	}
 
 	// Can be used with interfaces and implementations
-	template<typename RetType, typename Class, typename... Args>
-	inline Member GetVirtualAddress(
-		void **vtable,
-		size_t size,
-		RetType ( Class::* method )( Args... )
-	)
+	template<
+		typename Definition,
+		typename Traits = FunctionTraits<Definition>,
+		std::enable_if_t<Traits::IsMemberFunctionPointer, int> = 0
+	>
+	inline Member GetVirtualAddress( void **vtable, size_t size, Definition method )
 	{
 		if( vtable == nullptr || size == 0 || method == nullptr )
 			return Member( );
@@ -171,30 +277,30 @@ namespace Detouring
 			if( index >= size )
 				return Member( );
 
-			return Member( index, vtable[index], Member::Type::Virtual );
+			return Member( index, vtable[index] );
 		}
 
 		for( size_t index = 0; index < size; ++index )
 			if( vtable[index] == member )
-				return Member( index, member, Member::Type::Virtual );
+				return Member( index, member );
 
 		return Member( );
 
 #else
 
-		RetType ( Class::** pmethod )( Args... ) = &method;
+		Definition *pmethod = &method;
 		void *address = *reinterpret_cast<void **>( pmethod );
 		size_t offset = ( reinterpret_cast<uintptr_t>( address ) - 1 ) / sizeof( void * );
 		if( offset >= size )
 		{
 			for( size_t index = 0; index < size; ++index )
 				if( vtable[index] == address )
-					return Member( index, address, Member::Type::Virtual );
+					return Member( index, address );
 
 			return Member( );
 		}
 
-		return Member( offset, vtable[offset], Member::Type::Virtual );
+		return Member( offset, vtable[offset] );
 
 #endif
 
