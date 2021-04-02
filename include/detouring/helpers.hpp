@@ -150,18 +150,7 @@ namespace Detouring
 
 #elif defined( COMPILER_GNUC ) || defined( COMPILER_CLANG )
 
-#ifdef ARCHITECTURE_X86
-
-#define DETOURING_CDECL __attribute__((cdecl))
-#define DETOURING_STDCALL __attribute__((stdcall))
-#define DETOURING_THISCALL __attribute__((thiscall))
-#define DETOURING_FASTCALL __attribute__((fastcall))
-
-#elif defined( ARCHITECTURE_X86_64 )
-
 #define DETOURING_CDECL
-
-#endif
 
 #endif
 
