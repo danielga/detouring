@@ -187,6 +187,14 @@ namespace Detouring
 #undef DETOURING_MAKE_IS_MEMBER_CALLABLE
 #undef DETOURING_MAKE_IS_CALLABLE
 
+	template<typename Definition>
+	union MemberToAddress
+	{
+		Definition member;
+		uintptr_t offset;
+		void *pointer;
+	};
+
 	template<
 		typename Definition,
 		typename Traits = FunctionTraits<Definition>,
@@ -194,22 +202,13 @@ namespace Detouring
 	>
 	inline void *GetAddress( Definition method )
 	{
-		Definition *pmethod = &method;
+		MemberToAddress<Definition> magic;
+		magic.member = method;
+		void *address = magic.pointer;
 
-#ifdef COMPILER_VC
-
-		void *address = *reinterpret_cast<void **>( pmethod );
-
-#elif defined( ARCHITECTURE_X86_64 )
-
-		(void)pmethod;
-		void *address = reinterpret_cast<void *>( method );
-
-#else
-
-		void *address = reinterpret_cast<void *>( pmethod );
-
-#endif
+		// Most likely a virtual table offset
+		if( magic.offset <= 0xFFFF )
+			return address;
 
 #ifdef ARCHITECTURE_X86
 
@@ -252,12 +251,12 @@ namespace Detouring
 
 #endif
 
-		// check for jmp functions
+		// Check for JMP functions
 		if( addr[0] == 0xFF && ( ( addr[1] >> 4 ) & 3 ) == 2 )
 		{
 			uint8_t jumptype = addr[1] >> 6;
 			uint32_t offset = 0;
-			if( jumptype == 1 ) // byte
+			if( jumptype == 1 )
 				offset = addr[2];
 			else if( jumptype == 2 )
 				offset = *reinterpret_cast<uint32_t *>( &addr[2] );
@@ -277,9 +276,11 @@ namespace Detouring
 
 #else
 
-		Definition *pmethod = &method;
-		void *address = *reinterpret_cast<void **>( pmethod );
-		size_t offset = ( reinterpret_cast<uintptr_t>( address ) - 1 ) / sizeof( void * );
+		MemberToAddress<Definition> magic;
+		magic.member = method;
+		void *address = magic.pointer;
+		const uintptr_t offset = magic.offset - 1;
+
 		if( offset >= size )
 		{
 			for( size_t index = 0; index < size; ++index )
