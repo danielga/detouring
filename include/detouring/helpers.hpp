@@ -279,7 +279,7 @@ namespace Detouring
 		MemberToAddress<Definition> magic;
 		magic.member = method;
 		void *address = magic.pointer;
-		const uintptr_t offset = magic.offset - 1;
+		const uintptr_t offset = ( magic.offset - 1 ) / sizeof( void * );
 
 		if( offset >= size )
 		{
