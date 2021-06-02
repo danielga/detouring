@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  MinHook - The Minimalistic API Hooking Library for x64/x86
  *  Copyright (C) 2009-2017 Tsuda Kageyu.
  *  All rights reserved.
@@ -44,7 +44,7 @@
 
 #include <limits.h>
 
-#include "../include/minhook.h"
+#include "../include/MinHook.h"
 #include "buffer.h"
 #include "trampoline.h"
 
@@ -698,14 +698,14 @@ MH_STATUS MH_API MH_Uninitialize(void)
 
             UninitializeBuffer();
 
-    #ifdef _WIN32
+#ifdef _WIN32
             HeapFree(g_hHeap, 0, g_hooks.pItems);
             HeapDestroy(g_hHeap);
 
             g_hHeap = NULL;
-    #else
+#else
             free(g_hooks.pItems);
-    #endif
+#endif
 
             g_hooks.pItems   = NULL;
             g_hooks.capacity = 0;

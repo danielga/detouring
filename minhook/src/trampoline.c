@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  MinHook - The Minimalistic API Hooking Library for x64/x86
  *  Copyright (C) 2009-2017 Tsuda Kageyu.
  *  All rights reserved.
@@ -177,7 +177,47 @@ bool CreateTrampolineFunction(PTRAMPOLINE ct)
 #ifdef MH_X86_64
             call.address = dest;
 #else
-            call.operand = (uint32_t)(dest - (pNewInst + sizeof(call)));
+            switch (*(uint32_t *)dest)
+            {
+            // mov eax [esp]
+            // ret
+            case 0xC324048B:
+                call.opcode = 0xB8;
+                call.operand = pOldInst + 5;
+                break;
+
+            // mov ebx [esp]
+            // ret
+            case 0xC3241C8B:
+                call.opcode = 0xBB;
+                call.operand = pOldInst + 5;
+                break;
+
+            // mov ecx [esp]
+            // ret
+            case 0xC3240C8B:
+                call.opcode = 0xB9;
+                call.operand = pOldInst + 5;
+                break;
+
+            // mov edx [esp]
+            // ret
+            case 0xC324148B:
+                call.opcode = 0xBA;
+                call.operand = pOldInst + 5;
+                break;
+
+            // mov esi [esp]
+            // ret
+            case 0xC324348B:
+                call.opcode = 0xBE;
+                call.operand = pOldInst + 5;
+                break;
+
+            default:
+                call.operand = (uint32_t)(dest - (pNewInst + sizeof(call)));
+                break;
+            }
 #endif
             pCopySrc = &call;
             copySize = sizeof(call);
