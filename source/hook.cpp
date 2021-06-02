@@ -207,17 +207,17 @@ namespace Detouring
 
 	bool Hook::IsEnabled( ) const
 	{
-		return MH_IsHookEnabled( target ) == MH_HOOK_ENABLED;
+		return IsValid( ) && MH_IsHookEnabled( target ) == MH_HOOK_ENABLED;
 	}
 
 	bool Hook::Enable( )
 	{
-		return MH_EnableHook( target ) == MH_OK;
+		return IsValid( ) && MH_EnableHook( target ) == MH_OK;
 	}
 
 	bool Hook::Disable( )
 	{
-		return MH_DisableHook( target ) == MH_OK;
+		return IsValid( ) && MH_DisableHook( target ) == MH_OK;
 	}
 
 	void *Hook::GetTarget( ) const
