@@ -35,7 +35,7 @@
 
 #include "helpers.hpp"
 #include "platform.hpp"
-#include "minhook.h"
+#include "MinHook.h"
 #include <stdexcept>
 #include <iostream>
 

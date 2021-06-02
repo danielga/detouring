@@ -88,7 +88,7 @@
 #include <stdint.h>
 #include <string>
 #include <stdexcept>
-#include "minhook.h"
+#include "MinHook.h"
 #include "platform.hpp"
 #include "hook.hpp"
 #include "helpers.hpp"

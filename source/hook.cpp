@@ -36,7 +36,7 @@
 #include "hook.hpp"
 #include "helpers.hpp"
 #include "platform.hpp"
-#include "minhook.h"
+#include "MinHook.h"
 
 #include <cstring>
 
