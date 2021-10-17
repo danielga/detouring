@@ -91,7 +91,6 @@
 #include "MinHook.h"
 #include "platform.hpp"
 #include "hook.hpp"
-#include "helpers.hpp"
 
 #ifdef SYSTEM_POSIX
 
@@ -465,7 +464,8 @@ namespace MologieDetours
 		*/
 		void CreateDetour( )
 		{
-			Detouring::Initialize( );
+			MH_Initialize( );
+
 			switch( MH_CreateHook(
 				reinterpret_cast<void *>( target ),
 				reinterpret_cast<void *>( detour ),
@@ -558,6 +558,8 @@ namespace MologieDetours
 			default:
 				throw DetourException( "Unknown error returned by MH_RemoveHook" );
 			}
+
+			MH_Uninitialize( );
 		}
 
 		function_type target; // Pointer to target function

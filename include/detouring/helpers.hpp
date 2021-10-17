@@ -51,9 +51,6 @@
 
 namespace Detouring
 {
-	// Initializes the Detouring library, deinitializes automatically at module unloading
-	void Initialize( );
-
 	namespace MemoryProtection
 	{
 		enum : int32_t

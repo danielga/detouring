@@ -370,7 +370,7 @@ namespace Detouring
 					auto it = original_vtable.begin( );
 					it != original_vtable.end( );
 					++vtable, ++it
-					)
+				)
 					if( *vtable != *it )
 						*vtable = *it;
 
@@ -423,5 +423,5 @@ namespace Detouring
 
 	template<typename Target, typename Substitute>
 	std::shared_ptr<typename ClassProxy<Target, Substitute>::SharedState> ClassProxy<Target, Substitute>::shared_state =
-		std::make_shared < ClassProxy<Target, Substitute>::SharedState>( );
+		std::make_shared<ClassProxy<Target, Substitute>::SharedState>( );
 }

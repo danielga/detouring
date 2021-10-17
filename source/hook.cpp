@@ -145,8 +145,6 @@ namespace Detouring
 		if( !_target.IsValid( ) || _detour == nullptr )
 			return false;
 
-		Initialize( );
-
 		void *pointer = nullptr;
 		if( _target.IsPointer( ) )
 			pointer = _target.GetPointer( );
@@ -155,6 +153,8 @@ namespace Detouring
 
 		if( pointer == nullptr )
 			return false;
+
+		MH_Initialize( );
 
 		if( MH_CreateHook( pointer, _detour, &trampoline ) == MH_OK )
 		{
@@ -180,7 +180,7 @@ namespace Detouring
 		if( _detour == nullptr )
 			return false;
 
-		Initialize( );
+		MH_Initialize( );
 
 		if( MH_CreateHookApiEx( module.GetModuleName( ).c_str( ), _target.c_str( ), _detour, &trampoline, &target ) == MH_OK )
 		{
@@ -202,6 +202,7 @@ namespace Detouring
 		target = nullptr;
 		detour = nullptr;
 		trampoline = nullptr;
+		MH_Uninitialize( );
 		return true;
 	}
 
