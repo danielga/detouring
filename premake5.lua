@@ -12,6 +12,9 @@ function IncludeDetouring()
 	})
 	links("detouring")
 
+	filter("system:linux or macosx")
+		links("dl")
+
 	filter("system:macosx")
 		links("CoreServices.framework")
 
