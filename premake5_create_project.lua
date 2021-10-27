@@ -9,27 +9,53 @@ group("garrysmod_common")
 		files({
 			"include/detouring/*.hpp",
 			"include/detouring/*.h",
-			"source/*.cpp",
-			"hde/include/*.h",
-			"hde/src/hde.c",
-			"minhook/include/*.h",
-			"minhook/src/*.h",
-			"minhook/src/*.c"
+			"source/*.cpp"
 		})
 		vpaths({
 			["Header files"] = {
 				"include/detouring/*.hpp",
 				"include/detouring/*.h"
 			},
-			["Header files/hde"] = "hde/include/*.h",
-			["Header files/minhook"] = {
+			["Source files"] = "source/*.cpp"
+		})
+		links({"hde", "minhook"})
+
+	project("hde")
+		language("C")
+		kind("StaticLib")
+		strictaliasing("Off")
+		location("projects/" .. os.target() .. "/" .. _ACTION)
+		targetdir("%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}")
+		debugdir("%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}")
+		objdir("!%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}/intermediate/%{prj.name}")
+		includedirs("hde/include")
+		files({
+			"hde/include/*.h",
+			"hde/src/hde.c"
+		})
+		vpaths({
+			["Header files"] = "hde/include/*.h",
+			["Source files/hde"] = "hde/src/*.c"
+		})
+
+	project("minhook")
+		language("C")
+		kind("StaticLib")
+		strictaliasing("Off")
+		location("projects/" .. os.target() .. "/" .. _ACTION)
+		targetdir("%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}")
+		debugdir("%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}")
+		objdir("!%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}/intermediate/%{prj.name}")
+		includedirs("minhook/include")
+		files({
+			"minhook/include/*.h",
+			"minhook/src/*.h",
+			"minhook/src/*.c"
+		})
+		vpaths({
+			["Header files"] = {
 				"minhook/include/*.h",
 				"minhook/src/*.h"
 			},
-			["Source files"] = "source/*.cpp",
-			["Source files/hde"] = "hde/src/*.c",
-			["Source files/minhook"] = "minhook/src/*.c"
+			["Source files"] = "minhook/src/*.c"
 		})
-
-		filter("files:**.c")
-			language("C")
