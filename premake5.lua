@@ -10,7 +10,7 @@ function IncludeDetouring()
 		current_dir .. "/hde/include",
 		current_dir .. "/minhook/include"
 	})
-	links({"detouring", "hde", "minhook"})
+	links({"detouring", "minhook", "hde"})
 
 	filter("system:linux or macosx")
 		links("dl")

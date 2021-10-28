@@ -28,7 +28,7 @@ group("garrysmod_common")
 		targetdir("%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}")
 		debugdir("%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}")
 		objdir("!%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}/intermediate/%{prj.name}")
-		includedirs("hde/include")
+		includedirs({"include/detouring", "hde/include"})
 		files({
 			"hde/include/*.h",
 			"hde/src/hde.c"
@@ -46,7 +46,7 @@ group("garrysmod_common")
 		targetdir("%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}")
 		debugdir("%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}")
 		objdir("!%{prj.location}/%{cfg.architecture}/%{cfg.buildcfg}/intermediate/%{prj.name}")
-		includedirs("minhook/include")
+		includedirs({"hde/include", "minhook/include"})
 		files({
 			"minhook/include/*.h",
 			"minhook/src/*.h",
@@ -59,3 +59,4 @@ group("garrysmod_common")
 			},
 			["Source files"] = "minhook/src/*.c"
 		})
+		links("hde")
