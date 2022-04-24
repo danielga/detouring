@@ -4,7 +4,7 @@
 * calls in substitute classes. Contains helpers for detouring regular
 * member functions as well.
 *------------------------------------------------------------------------
-* Copyright (c) 2017-2020, Daniel Almeida
+* Copyright (c) 2017-2022, Daniel Almeida
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,8 @@
 #include <unordered_map>
 #include <utility>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
 
 namespace Detouring
 {
@@ -59,7 +61,7 @@ namespace Detouring
 	protected:
 		ClassProxy( ) = default;
 
-		ClassProxy( Target *instance ) : state( shared_state )
+		ClassProxy( Target *instance )
 		{
 			Initialize( instance );
 		}
@@ -69,6 +71,7 @@ namespace Detouring
 	public:
 		static bool Initialize( Target *instance, Substitute *substitute )
 		{
+			auto shared_state = GetSharedState( );
 			return shared_state->Initialize( instance, substitute );
 		}
 
@@ -89,7 +92,8 @@ namespace Detouring
 		>
 		static bool IsHooked( Definition original )
 		{
-			return shared_state->hooks.find( reinterpret_cast<void *>( original ) ) != shared_state->hooks.end( );
+			const auto shared_state = GetSharedState( );
+			return shared_state->hooks.find( reinterpret_cast<void*>( original ) ) != shared_state->hooks.end( );
 		}
 
 		template<
@@ -99,7 +103,9 @@ namespace Detouring
 		>
 		static bool IsHooked( Definition original )
 		{
-			auto it = shared_state->hooks.find( GetAddress( original ) );
+			const auto shared_state = GetSharedState( );
+
+			const auto it = shared_state->hooks.find( GetAddress( original ) );
 			if( it != shared_state->hooks.end( ) )
 				return true;
 
@@ -122,11 +128,13 @@ namespace Detouring
 			DefinitionSubstitute substitute
 		)
 		{
+			const auto shared_state = GetSharedState( );
+
 			void *address = reinterpret_cast<void *>( original );
 			if( address == nullptr )
 				return false;
 
-			auto it = shared_state->hooks.find( address );
+			const auto it = shared_state->hooks.find( address );
 			if( it != shared_state->hooks.end( ) )
 				return true;
 
@@ -156,6 +164,8 @@ namespace Detouring
 			DefinitionSubstitute substitute
 		)
 		{
+			const auto shared_state = GetSharedState( );
+
 			Member target = GetVirtualAddress( shared_state->target_vtable, original );
 			if( target.IsValid( ) )
 			{
@@ -177,7 +187,7 @@ namespace Detouring
 			if( address == nullptr )
 				return false;
 
-			auto it = shared_state->hooks.find( address );
+			const auto it = shared_state->hooks.find( address );
 			if( it != shared_state->hooks.end( ) )
 				return true;
 
@@ -202,7 +212,9 @@ namespace Detouring
 		>
 		static bool UnHook( Definition original )
 		{
-			auto it = shared_state->hooks.find( reinterpret_cast<void *>( original ) );
+			const auto shared_state = GetSharedState( );
+
+			const auto it = shared_state->hooks.find( reinterpret_cast<void *>( original ) );
 			if( it != shared_state->hooks.end( ) )
 			{
 				shared_state->hooks.erase( it );
@@ -219,7 +231,9 @@ namespace Detouring
 		>
 		static bool UnHook( Definition original )
 		{
-			auto it = shared_state->hooks.find( GetAddress( original ) );
+			const auto shared_state = GetSharedState( );
+
+			const auto it = shared_state->hooks.find( GetAddress( original ) );
 			if( it != shared_state->hooks.end( ) )
 			{
 				shared_state->hooks.erase( it );
@@ -254,6 +268,8 @@ namespace Detouring
 			Args &&... args
 		)
 		{
+			const auto shared_state = GetSharedState( );
+
 			void *address = reinterpret_cast<void *>( original ), *target = nullptr;
 			const auto it = shared_state->hooks.find( address );
 			if( it != shared_state->hooks.end( ) )
@@ -282,9 +298,11 @@ namespace Detouring
 			Args &&... args
 		)
 		{
+			const auto shared_state = GetSharedState( );
+
 			void *address = GetAddress( original );
 			void *final_address = nullptr;
-			auto it = shared_state->hooks.find( address );
+			const auto it = shared_state->hooks.find( address );
 			if( it != shared_state->hooks.end( ) )
 				final_address = it->second.GetTrampoline( );
 
@@ -343,7 +361,7 @@ namespace Detouring
 		)
 		{
 			void *member = GetAddress( method );
-			auto it = vtable.cache.find( member );
+			const auto it = vtable.cache.find( member );
 			if( it != vtable.cache.end( ) )
 				return it->second;
 
@@ -416,12 +434,24 @@ namespace Detouring
 			VTable substitute_vtable;
 			HookMap hooks;
 		};
-		static std::shared_ptr<SharedState> shared_state;
 
-		std::shared_ptr<SharedState> state = shared_state;
+		static std::shared_ptr<SharedState> GetSharedState( const bool create_if_needed = false )
+		{
+			static std::weak_ptr<SharedState> weak_shared_state;
+			static std::mutex shared_state_mutex;
+
+			std::lock_guard lock( shared_state_mutex );
+
+			auto shared_state = weak_shared_state.lock( );
+			if( !shared_state )
+			{
+				shared_state = std::make_shared<SharedState>( );
+				weak_shared_state = shared_state;
+			}
+
+			return shared_state;
+		}
+
+		std::shared_ptr<SharedState> state = GetSharedState( true );
 	};
-
-	template<typename Target, typename Substitute>
-	std::shared_ptr<typename ClassProxy<Target, Substitute>::SharedState> ClassProxy<Target, Substitute>::shared_state =
-		std::make_shared<ClassProxy<Target, Substitute>::SharedState>( );
 }
