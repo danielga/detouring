@@ -72,6 +72,9 @@ namespace Detouring
 		static bool Initialize( Target *instance, Substitute *substitute )
 		{
 			auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return false;
+
 			return shared_state->Initialize( instance, substitute );
 		}
 
@@ -93,6 +96,9 @@ namespace Detouring
 		static bool IsHooked( Definition original )
 		{
 			const auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return false;
+
 			return shared_state->hooks.find( reinterpret_cast<void*>( original ) ) != shared_state->hooks.end( );
 		}
 
@@ -104,6 +110,8 @@ namespace Detouring
 		static bool IsHooked( Definition original )
 		{
 			const auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return false;
 
 			const auto it = shared_state->hooks.find( GetAddress( original ) );
 			if( it != shared_state->hooks.end( ) )
@@ -129,6 +137,8 @@ namespace Detouring
 		)
 		{
 			const auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return false;
 
 			void *address = reinterpret_cast<void *>( original );
 			if( address == nullptr )
@@ -165,6 +175,8 @@ namespace Detouring
 		)
 		{
 			const auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return false;
 
 			Member target = GetVirtualAddress( shared_state->target_vtable, original );
 			if( target.IsValid( ) )
@@ -213,6 +225,8 @@ namespace Detouring
 		static bool UnHook( Definition original )
 		{
 			const auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return false;
 
 			const auto it = shared_state->hooks.find( reinterpret_cast<void *>( original ) );
 			if( it != shared_state->hooks.end( ) )
@@ -232,6 +246,8 @@ namespace Detouring
 		static bool UnHook( Definition original )
 		{
 			const auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return false;
 
 			const auto it = shared_state->hooks.find( GetAddress( original ) );
 			if( it != shared_state->hooks.end( ) )
@@ -269,6 +285,8 @@ namespace Detouring
 		)
 		{
 			const auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return ReturnType( );
 
 			void *address = reinterpret_cast<void *>( original ), *target = nullptr;
 			const auto it = shared_state->hooks.find( address );
@@ -299,6 +317,8 @@ namespace Detouring
 		)
 		{
 			const auto shared_state = GetSharedState( );
+			if( !shared_state )
+				return ReturnType( );
 
 			void *address = GetAddress( original );
 			void *final_address = nullptr;
@@ -443,7 +463,7 @@ namespace Detouring
 			std::lock_guard lock( shared_state_mutex );
 
 			auto shared_state = weak_shared_state.lock( );
-			if( !shared_state )
+			if( !shared_state && create_if_needed )
 			{
 				shared_state = std::make_shared<SharedState>( );
 				weak_shared_state = shared_state;
@@ -452,6 +472,6 @@ namespace Detouring
 			return shared_state;
 		}
 
-		std::shared_ptr<SharedState> state = GetSharedState( true );
+		const std::shared_ptr<SharedState> state = GetSharedState( true );
 	};
 }
