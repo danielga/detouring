@@ -5,7 +5,7 @@ function IncludeDetouring()
 
 	local _project = project()
 
-	sysincludedirs({
+	externalincludedirs({
 		current_dir .. "/include",
 		current_dir .. "/hde/include",
 		current_dir .. "/minhook/include"
