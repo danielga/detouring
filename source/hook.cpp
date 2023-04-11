@@ -245,7 +245,7 @@ namespace Detouring
 		DWORD size = static_cast<DWORD>( modules.size( ) * sizeof( HMODULE ) );
 		DWORD needed = 0;
 		if( !EnumProcessModules( GetCurrentProcess( ), modules.data( ), size, &needed ) )
-			return false;
+			return nullptr;
 
 		if( needed > size )
 		{
@@ -253,7 +253,7 @@ namespace Detouring
 			size = needed;
 			needed = 0;
 			if( !EnumProcessModules( GetCurrentProcess( ), modules.data( ), size, &needed ) )
-				return false;
+				return nullptr;
 		}
 
 		for( HMODULE module : modules )
