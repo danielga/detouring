@@ -83,7 +83,13 @@ namespace Detouring
 		Hook( const Target &target, void *detour );
 		Hook( const Module &module, const std::string &target, void *detour );
 
+		Hook( const Hook & ) = delete;
+		Hook( Hook && ) = delete;
+
 		~Hook( );
+
+		Hook &operator=( const Hook & ) = delete;
+		Hook &operator=( Hook && ) = delete;
 
 		bool IsValid( ) const;
 
